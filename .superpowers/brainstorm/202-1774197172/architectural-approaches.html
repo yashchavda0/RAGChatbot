@@ -1,0 +1,158 @@
+<h2>Frontend Architecture Approaches</h2>
+<p class="subtitle">How to structure the dashboard and embeddable widget</p>
+
+<div class="options">
+  <div class="option" data-choice="monolithic" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Monolithic Next.js App</h3>
+      <p>Single Next.js application with widget as an iframe-able route</p>
+
+      <div class="mockup" style="margin-top: 12px; padding: 16px; background: #f8f9fa; border-radius: 8px;">
+        <div style="background: white; padding: 12px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 12px;">
+          <div style="font-weight: 600; margin-bottom: 8px;">📁 Project Structure</div>
+          <div style="font-family: monospace; font-size: 12px; background: #f5f5f5; padding: 12px; border-radius: 4px;">
+            <div>frontend/</div>
+            <div style="margin-left: 16px;">├── app/</div>
+            <div style="margin-left: 32px;">├── (dashboard)/</div>
+            <div style="margin-left: 48px;">├── chatbots/</div>
+            <div style="margin-left: 64px;">├── [id]/</div>
+            <div style="margin-left: 80px;">├── documents/</div>
+            <div style="margin-left: 80px;">├── design/</div>
+            <div style="margin-left: 80px;">├── analytics/</div>
+            <div style="margin-left: 32px;">├── (widget)/</div>
+            <div style="margin-left: 48px;">├── widget/[botId]/</div>
+            <div style="margin-left: 16px;">├── components/</div>
+            <div style="margin-left: 32px;">├── dashboard/</div>
+            <div style="margin-left: 32px;">├── widget/</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pros-cons" style="margin-top: 12px;">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Single codebase, easier maintenance</li>
+            <li>Shared components between dashboard & widget</li>
+            <li>Simpler deployment (one app)</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Widget inherits Next.js bundle size</li>
+            <li>Iframe has some limitations</li>
+            <li>Less isolation between widget and dashboard</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="separated" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Separate Widget Bundle</h3>
+      <p>Next.js dashboard + Standalone widget built with Vite (vanilla JS/React)</p>
+
+      <div class="mockup" style="margin-top: 12px; padding: 16px; background: #f8f9fa; border-radius: 8px;">
+        <div style="background: white; padding: 12px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 12px;">
+          <div style="font-weight: 600; margin-bottom: 8px;">📁 Project Structure</div>
+          <div style="font-family: monospace; font-size: 12px; background: #f5f5f5; padding: 12px; border-radius: 4px;">
+            <div>frontend/</div>
+            <div style="margin-left: 16px;">├── dashboard/ (Next.js 14)</div>
+            <div style="margin-left: 32px;">├── app/</div>
+            <div style="margin-left: 32px;">├── components/</div>
+            <div style="margin-left: 16px;">├── widget/ (Vite + React)</div>
+            <div style="margin-left: 32px;">├── src/</div>
+            <div style="margin-left: 48px;">├── ChatWidget.tsx</div>
+            <div style="margin-left: 48px;">├── ChatBubble.tsx</div>
+            <div style="margin-left: 32px;">├── dist/</div>
+            <div style="margin-left: 48px;">├── chatbot-widget.js (~50KB)</div>
+            <div style="margin-left: 16px;">├── shared/</div>
+            <div style="margin-left: 32px;">├── types/</div>
+            <div style="margin-left: 32px;">├── api-client/</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pros-cons" style="margin-top: 12px;">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Widget is lightweight (~50KB gzipped)</li>
+            <li>Widget loads independently, no Next.js overhead</li>
+            <li>Better performance on customer websites</li>
+            <li>Clear separation of concerns</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Two codebases to maintain</li>
+            <li>Need to sync shared types/utils</li>
+            <li>More complex build pipeline</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="hybrid" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Hybrid with Shared Design System</h3>
+      <p>Next.js dashboard + Standalone widget + Shared UI package</p>
+
+      <div class="mockup" style="margin-top: 12px; padding: 16px; background: #f8f9fa; border-radius: 8px;">
+        <div style="background: white; padding: 12px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 12px;">
+          <div style="font-weight: 600; margin-bottom: 8px;">📁 Project Structure</div>
+          <div style="font-family: monospace; font-size: 12px; background: #f5f5f5; padding: 12px; border-radius: 4px;">
+            <div>frontend/</div>
+            <div style="margin-left: 16px;">├── packages/</div>
+            <div style="margin-left: 32px;">├── ui/ (Shared components)</div>
+            <div style="margin-left: 48px;">├── glass-card/</div>
+            <div style="margin-left: 48px;">├── gradient-button/</div>
+            <div style="margin-left: 48px;">├── chat-bubble/</div>
+            <div style="margin-left: 32px;">├── types/ (Shared types)</div>
+            <div style="margin-left: 32px;">├── api-client/ (Shared API)</div>
+            <div style="margin-left: 16px;">├── apps/</div>
+            <div style="margin-left: 32px;">├── dashboard/ (Next.js)</div>
+            <div style="margin-left: 32px;">├── widget/ (Vite bundle)</div>
+            <div style="margin-left: 16px;">├── package.json (workspace)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pros-cons" style="margin-top: 12px;">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Consistent design system across all apps</li>
+            <li>Maximum code reuse</li>
+            <li>Lightweight widget bundle</li>
+            <li>Scalable for future apps (mobile, etc.)</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Higher initial setup complexity</li>
+            <li>Monorepo tooling (Turborepo/pnpm workspaces)</li>
+            <li>More upfront investment</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 24px; padding: 16px; background: #e3f2fd; border-radius: 8px; border-left: 4px solid #2196f3;">
+  <div style="font-weight: 600; margin-bottom: 8px;">💡 My Recommendation: Option B (Separate Widget Bundle)</div>
+  <p style="margin: 0; font-size: 14px;">
+    For a SaaS chatbot platform where the widget is embedded on customer websites, a separate lightweight bundle is essential.
+    Next.js is great for the dashboard, but the widget should be a standalone ~50KB bundle that loads fast on any website.
+    This gives you the best balance of performance and maintainability without the complexity of a full monorepo setup.
+  </p>
+</div>

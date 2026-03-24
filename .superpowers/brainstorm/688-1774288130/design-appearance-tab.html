@@ -1,0 +1,242 @@
+<h2>Appearance Tab - Color Customization</h2>
+<p class="subtitle">Where users customize the widget colors, fonts, and design</p>
+
+<div class="mockup" style="padding: 0; background: #f0f9ff; border-radius: 12px; overflow: hidden; border: 1px solid #bfdbfe;">
+
+  <!-- Main Layout -->
+  <div style="display: flex; min-height: 500px;">
+
+    <!-- Sidebar (collapsed view) -->
+    <div style="width: 200px; background: #1e3a5f; color: white; padding: 16px; opacity: 0.5;">
+      <div style="font-size: 11px; opacity: 0.6;">...sidebar...</div>
+    </div>
+
+    <!-- Main Content -->
+    <div style="flex: 1; padding: 24px;">
+
+      <!-- Tabs -->
+      <div style="background: white; border-radius: 14px; border: 1px solid #bfdbfe; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+        <div style="display: flex; border-bottom: 1px solid #e0f2fe; padding: 0 16px; background: #fafafa;">
+          <div style="padding: 16px 20px; cursor: pointer; color: #64748b; display: flex; align-items: center; gap: 10px;">
+            <div style="width: 28px; height: 28px; background: #f5f5f5; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="#64748b">
+                <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6z"/>
+              </svg>
+            </div>
+            Documents
+          </div>
+          <div style="padding: 16px 20px; cursor: pointer; border-bottom: 2px solid #1e40af; color: #1e40af; font-weight: 600; display: flex; align-items: center; gap: 10px;">
+            <div style="width: 28px; height: 28px; background: #eff6ff; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="#1e40af">
+                <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8z"/>
+              </svg>
+            </div>
+            Appearance
+          </div>
+          <div style="padding: 16px 20px; cursor: pointer; color: #64748b; display: flex; align-items: center; gap: 10px;">Behavior</div>
+          <div style="padding: 16px 20px; cursor: pointer; color: #64748b; display: flex; align-items: center; gap: 10px;">Integration</div>
+          <div style="padding: 16px 20px; cursor: pointer; color: #64748b; display: flex; align-items: center; gap: 10px;">Analytics</div>
+        </div>
+
+        <!-- Tab Content -->
+        <div style="padding: 24px; display: flex; gap: 24px;">
+
+          <!-- Left: Color Controls -->
+          <div style="flex: 1;">
+            <div style="font-weight: 600; color: #1e3a5f; margin-bottom: 16px; font-size: 16px;">Widget Colors</div>
+
+            <!-- Color Pickers Grid -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+
+              <!-- Primary Color -->
+              <div style="background: #fafafa; padding: 16px; border-radius: 12px; border: 1px solid #e0f2fe;">
+                <div style="font-size: 12px; color: #64748b; margin-bottom: 8px; font-weight: 500;">Header Background</div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div style="width: 48px; height: 48px; background: #1e3a5f; border-radius: 10px; cursor: pointer; border: 2px solid #bfdbfe;"></div>
+                  <div>
+                    <input type="text" value="#1e3a5f" style="border: 1px solid #e0f2fe; padding: 8px 12px; border-radius: 8px; font-family: monospace; font-size: 13px; width: 100px;" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Secondary Color -->
+              <div style="background: #fafafa; padding: 16px; border-radius: 12px; border: 1px solid #e0f2fe;">
+                <div style="font-size: 12px; color: #64748b; margin-bottom: 8px; font-weight: 500;">Chat Bubble</div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div style="width: 48px; height: 48px; background: #1e40af; border-radius: 10px; cursor: pointer; border: 2px solid #bfdbfe;"></div>
+                  <div>
+                    <input type="text" value="#1e40af" style="border: 1px solid #e0f2fe; padding: 8px 12px; border-radius: 8px; font-family: monospace; font-size: 13px; width: 100px;" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- User Message -->
+              <div style="background: #fafafa; padding: 16px; border-radius: 12px; border: 1px solid #e0f2fe;">
+                <div style="font-size: 12px; color: #64748b; margin-bottom: 8px; font-weight: 500;">User Messages</div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div style="width: 48px; height: 48px; background: #3b82f6; border-radius: 10px; cursor: pointer; border: 2px solid #bfdbfe;"></div>
+                  <div>
+                    <input type="text" value="#3b82f6" style="border: 1px solid #e0f2fe; padding: 8px 12px; border-radius: 8px; font-family: monospace; font-size: 13px; width: 100px;" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Bot Message -->
+              <div style="background: #fafafa; padding: 16px; border-radius: 12px; border: 1px solid #e0f2fe;">
+                <div style="font-size: 12px; color: #64748b; margin-bottom: 8px; font-weight: 500;">Bot Messages</div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div style="width: 48px; height: 48px; background: #f1f5f9; border-radius: 10px; cursor: pointer; border: 2px solid #bfdbfe;"></div>
+                  <div>
+                    <input type="text" value="#f1f5f9" style="border: 1px solid #e0f2fe; padding: 8px 12px; border-radius: 8px; font-family: monospace; font-size: 13px; width: 100px;" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Accent Color -->
+              <div style="background: #fafafa; padding: 16px; border-radius: 12px; border: 1px solid #e0f2fe;">
+                <div style="font-size: 12px; color: #64748b; margin-bottom: 8px; font-weight: 500;">Send Button</div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div style="width: 48px; height: 48px; background: #1e40af; border-radius: 10px; cursor: pointer; border: 2px solid #bfdbfe;"></div>
+                  <div>
+                    <input type="text" value="#1e40af" style="border: 1px solid #e0f2fe; padding: 8px 12px; border-radius: 8px; font-family: monospace; font-size: 13px; width: 100px;" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Text Color -->
+              <div style="background: #fafafa; padding: 16px; border-radius: 12px; border: 1px solid #e0f2fe;">
+                <div style="font-size: 12px; color: #64748b; margin-bottom: 8px; font-weight: 500;">Text Color</div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div style="width: 48px; height: 48px; background: #1e293b; border-radius: 10px; cursor: pointer; border: 2px solid #bfdbfe;"></div>
+                  <div>
+                    <input type="text" value="#1e293b" style="border: 1px solid #e0f2fe; padding: 8px 12px; border-radius: 8px; font-family: monospace; font-size: 13px; width: 100px;" />
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Additional Settings -->
+            <div style="font-weight: 600; color: #1e3a5f; margin-bottom: 16px; font-size: 16px;">Widget Style</div>
+
+            <div style="background: #fafafa; padding: 16px; border-radius: 12px; border: 1px solid #e0f2fe; margin-bottom: 16px;">
+              <div style="font-size: 12px; color: #64748b; margin-bottom: 12px; font-weight: 500;">Border Radius</div>
+              <div style="display: flex; gap: 8px;">
+                <div style="padding: 10px 16px; background: white; border: 1px solid #bfdbfe; border-radius: 6px; cursor: pointer; font-size: 12px;">Small</div>
+                <div style="padding: 10px 16px; background: #1e40af; color: white; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500;">Medium</div>
+                <div style="padding: 10px 16px; background: white; border: 1px solid #bfdbfe; border-radius: 6px; cursor: pointer; font-size: 12px;">Large</div>
+                <div style="padding: 10px 16px; background: white; border: 1px solid #bfdbfe; border-radius: 6px; cursor: pointer; font-size: 12px;">Round</div>
+              </div>
+            </div>
+
+            <div style="background: #fafafa; padding: 16px; border-radius: 12px; border: 1px solid #e0f2fe;">
+              <div style="font-size: 12px; color: #64748b; margin-bottom: 12px; font-weight: 500;">Font Family</div>
+              <select style="width: 100%; padding: 10px 12px; border: 1px solid #e0f2fe; border-radius: 8px; font-size: 13px; background: white; cursor: pointer;">
+                <option>Inter (Default)</option>
+                <option>Roboto</option>
+                <option>Open Sans</option>
+                <option>Poppins</option>
+                <option>System Font</option>
+              </select>
+            </div>
+
+          </div>
+
+          <!-- Right: Live Preview -->
+          <div style="width: 320px;">
+            <div style="font-weight: 600; color: #1e3a5f; margin-bottom: 16px; font-size: 16px;">Live Preview</div>
+
+            <div style="background: #f5f5f5; padding: 16px; border-radius: 12px; border: 1px solid #ddd; position: relative; min-height: 400px;">
+
+              <!-- Mini Widget Preview -->
+              <div style="position: absolute; bottom: 16px; right: 16px; width: 280px; background: white; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.15); overflow: hidden;">
+
+                <!-- Header -->
+                <div style="background: #1e3a5f; padding: 12px; color: white; display: flex; align-items: center; justify-content: space-between;">
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 32px; height: 32px; background: #1e40af; border-radius: 50%; display: flex; align-items: center; justify-content: center;">💬</div>
+                    <div>
+                      <div style="font-weight: 600; font-size: 13px;">Customer Support</div>
+                      <div style="font-size: 10px; opacity: 0.8;">Online</div>
+                    </div>
+                  </div>
+                  <div style="cursor: pointer; font-size: 16px; opacity: 0.8;">✕</div>
+                </div>
+
+                <!-- Messages -->
+                <div style="padding: 12px; height: 180px; overflow-y: auto; background: #f8fafc;">
+                  <!-- Bot Message -->
+                  <div style="display: flex; gap: 6px; margin-bottom: 10px;">
+                    <div style="width: 24px; height: 24px; background: #dbeafe; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px;">💬</div>
+                    <div style="background: #f1f5f9; padding: 10px 12px; border-radius: 12px; max-width: 180px; font-size: 13px; color: #1e293b;">
+                      Hi! How can I help you?
+                    </div>
+                  </div>
+                  <!-- User Message -->
+                  <div style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
+                    <div style="background: #3b82f6; padding: 10px 12px; border-radius: 12px; max-width: 180px; font-size: 13px; color: white;">
+                      I have a question about my order
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Input -->
+                <div style="padding: 10px 12px; border-top: 1px solid #e0f2fe; display: flex; gap: 8px; align-items: center; background: white;">
+                  <input type="text" placeholder="Type message..." style="flex: 1; border: none; outline: none; font-size: 13px; padding: 6px 0;" />
+                  <button style="width: 32px; height: 32px; background: #1e40af; border: none; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
+                      <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                    </svg>
+                  </button>
+                </div>
+
+              </div>
+
+              <!-- Bubble Preview -->
+              <div style="position: absolute; bottom: 16px; left: 16px; width: 50px; height: 50px; background: #1e40af; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 12px rgba(30,64,175,0.3);">
+                <span style="font-size: 22px;">💬</span>
+              </div>
+
+            </div>
+
+            <!-- Reset Button -->
+            <div style="margin-top: 16px; display: flex; gap: 8px;">
+              <button style="flex: 1; padding: 12px; background: white; border: 1px solid #bfdbfe; border-radius: 10px; cursor: pointer; font-size: 13px; color: #64748b; font-weight: 500;">Reset to Default</button>
+              <button style="flex: 1; padding: 12px; background: #1e40af; color: white; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 600;">Save Changes</button>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+  <div style="padding: 16px; background: #eff6ff; border-radius: 8px; border-left: 4px solid #1e40af;">
+    <div style="font-weight: 600; margin-bottom: 8px; color: #1e3a5f;">Customizable Elements</div>
+    <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #334155;">
+      <li><strong>Header Background</strong> - Widget header color</li>
+      <li><strong>Chat Bubble</strong> - Floating button color</li>
+      <li><strong>User Messages</strong> - User's message bubbles</li>
+      <li><strong>Bot Messages</strong> - Bot's message bubbles</li>
+      <li><strong>Send Button</strong> - Send button color</li>
+      <li><strong>Text Color</strong> - Primary text color</li>
+      <li><strong>Border Radius</strong> - Corner roundness</li>
+      <li><strong>Font Family</strong> - Typography choice</li>
+    </ul>
+  </div>
+  <div style="padding: 16px; background: #f0fdf4; border-radius: 8px; border-left: 4px solid #22c55e;">
+    <div style="font-weight: 600; margin-bottom: 8px; color: #166534;">Live Preview Features</div>
+    <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #334155;">
+      <li>Real-time color updates as user picks</li>
+      <li>Shows both open and closed widget states</li>
+      <li>Preview with sample conversation</li>
+      <li>Instant visual feedback</li>
+      <li>Reset to default option</li>
+      <li>Save changes button</li>
+    </ul>
+  </div>
+</div>

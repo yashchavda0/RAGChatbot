@@ -1,0 +1,75 @@
+<h2>Choose Your Layout Style</h2>
+<p class="subtitle">How should the chat interface feel? Select the interaction pattern that matches your vision.</p>
+
+<div class="options">
+  <div class="option" data-choice="centered" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Centered Chat (ChatGPT-style)</h3>
+      <div style="background:#0f172a;border-radius:8px;padding:16px;margin:12px 0;">
+        <div style="display:flex;flex-direction:column;gap:12px;max-width:280px;margin:0 auto;">
+          <div style="display:flex;gap:8px;">
+            <div style="width:24px;height:24px;background:#3b82f6;border-radius:50%;"></div>
+            <div style="flex:1;height:40px;background:#1e293b;border-radius:8px;"></div>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <div style="flex:1;height:32px;background:#3b82f6;border-radius:8px;"></div>
+            <div style="width:24px;height:24px;background:#06b6d4;border-radius:50%;"></div>
+          </div>
+          <div style="height:36px;background:#1e293b;border-radius:20px;margin-top:8px;"></div>
+        </div>
+      </div>
+      <p style="font-size:14px;color:#666;">Clean, focused conversation. Centered messages, minimal chrome. Best for pure chat experiences.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="sidebar" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Sidebar + Main (Claude-style)</h3>
+      <div style="background:#0f172a;border-radius:8px;padding:16px;margin:12px 0;">
+        <div style="display:flex;gap:8px;height:120px;">
+          <div style="width:60px;background:#1e293b;border-radius:6px;display:flex;flex-direction:column;gap:4px;padding:8px;">
+            <div style="height:8px;background:#3b82f6;border-radius:4px;"></div>
+            <div style="height:8px;background:#334155;border-radius:4px;"></div>
+            <div style="height:8px;background:#334155;border-radius:4px;"></div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;gap:8px;">
+              <div style="width:20px;height:20px;background:#06b6d4;border-radius:50%;"></div>
+              <div style="flex:1;height:24px;background:#1e293b;border-radius:6px;"></div>
+            </div>
+            <div style="height:28px;background:#1e293b;border-radius:16px;margin-top:auto;"></div>
+          </div>
+        </div>
+      </div>
+      <p style="font-size:14px;color:#666;">Navigation sidebar with conversation history. Better for multi-session workflows.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="split" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Split View (Agent-focused)</h3>
+      <div style="background:#0f172a;border-radius:8px;padding:16px;margin:12px 0;">
+        <div style="display:flex;gap:8px;height:120px;">
+          <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;gap:8px;">
+              <div style="width:20px;height:20px;background:#06b6d4;border-radius:50%;"></div>
+              <div style="flex:1;height:24px;background:#1e293b;border-radius:6px;"></div>
+            </div>
+            <div style="height:28px;background:#1e293b;border-radius:16px;margin-top:auto;"></div>
+          </div>
+          <div style="width:80px;background:#1e293b;border-radius:6px;padding:8px;display:flex;flex-direction:column;gap:6px;">
+            <div style="height:12px;background:#3b82f6;border-radius:4px;opacity:0.8;"></div>
+            <div style="height:12px;background:#06b6d4;border-radius:4px;opacity:0.5;"></div>
+            <div style="height:12px;background:#3b82f6;border-radius:4px;opacity:0.3;"></div>
+          </div>
+        </div>
+      </div>
+      <p style="font-size:14px;color:#666;">Chat on left, agent executions live on right. See AI reasoning in real-time.</p>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top:24px;font-size:13px;color:#888;">All options use your Midnight Sapphire palette (navy/blue/cyan).</p>

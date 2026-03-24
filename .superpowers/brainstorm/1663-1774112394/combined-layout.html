@@ -1,0 +1,147 @@
+<h2>Combined Layout Design</h2>
+<p class="subtitle">Sidebar navigation + optional agent panel. Best of both B and C.</p>
+
+<div class="mockup" style="background:#0f172a;border-radius:12px;padding:0;overflow:hidden;margin:16px 0;">
+  <!-- Header -->
+  <div style="background:#020617;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1e293b;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div style="width:32px;height:32px;background:linear-gradient(135deg,#3b82f6,#06b6d4);border-radius:8px;display:flex;align-items:center;justify-content:center;">
+        <span style="color:white;font-size:14px;font-weight:bold;">R</span>
+      </div>
+      <span style="color:#f1f5f9;font-weight:600;">RAG Chatbot</span>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <div style="padding:6px 12px;background:#1e293b;border-radius:6px;color:#94a3b8;font-size:12px;">Agents</div>
+      <div style="padding:6px 12px;background:#3b82f6;border-radius:6px;color:white;font-size:12px;">Chat</div>
+    </div>
+  </div>
+
+  <!-- Main Layout -->
+  <div style="display:flex;height:300px;">
+    <!-- Sidebar -->
+    <div style="width:200px;background:#020617;border-right:1px solid #1e293b;padding:12px;">
+      <div style="margin-bottom:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <span style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Sessions</span>
+          <div style="width:16px;height:16px;background:#1e293b;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:10px;">+</div>
+        </div>
+        <div style="background:#1e293b;border-radius:6px;padding:8px;margin-bottom:4px;">
+          <div style="color:#e2e8f0;font-size:12px;margin-bottom:2px;">Current Session</div>
+          <div style="color:#64748b;font-size:10px;">2 minutes ago</div>
+        </div>
+        <div style="padding:8px;border-radius:6px;">
+          <div style="color:#94a3b8;font-size:12px;margin-bottom:2px;">Previous chat</div>
+          <div style="color:#64748b;font-size:10px;">Yesterday</div>
+        </div>
+      </div>
+      <div style="border-top:1px solid #1e293b;padding-top:12px;">
+        <span style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Quick Actions</span>
+        <div style="margin-top:8px;display:flex;flex-direction:column;gap:4px;">
+          <div style="padding:6px 8px;color:#94a3b8;font-size:12px;display:flex;align-items:center;gap:8px;">
+            <div style="width:14px;height:14px;background:#06b6d4;border-radius:3px;"></div> Documents
+          </div>
+          <div style="padding:6px 8px;color:#94a3b8;font-size:12px;display:flex;align-items:center;gap:8px;">
+            <div style="width:14px;height:14px;background:#3b82f6;border-radius:3px;"></div> Settings
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat Area -->
+    <div style="flex:1;display:flex;flex-direction:column;background:#0f172a;">
+      <div style="flex:1;padding:16px;overflow-y:auto;">
+        <!-- Messages -->
+        <div style="display:flex;gap:10px;margin-bottom:16px;">
+          <div style="width:28px;height:28px;background:#1e293b;border-radius:50%;flex-shrink:0;"></div>
+          <div style="background:#1e293b;border-radius:12px;border-bottom-left-radius:4px;padding:10px 14px;max-width:70%;">
+            <div style="color:#e2e8f0;font-size:13px;line-height:1.5;">Hello! How can I help you search through your documents or find information online?</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-bottom:16px;">
+          <div style="background:linear-gradient(135deg,#3b82f6,#06b6d4);border-radius:12px;border-bottom-right-radius:4px;padding:10px 14px;max-width:70%;">
+            <div style="color:white;font-size:13px;">Search for information about quantum computing</div>
+          </div>
+          <div style="width:28px;height:28px;background:linear-gradient(135deg,#3b82f6,#06b6d4);border-radius:50%;flex-shrink:0;"></div>
+        </div>
+        <!-- Agent indicator -->
+        <div style="display:flex;gap:10px;margin-bottom:16px;">
+          <div style="width:28px;height:28px;background:#1e293b;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;">
+            <div style="width:8px;height:8px;background:#06b6d4;border-radius:50%;animation:pulse 1.5s infinite;"></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="color:#64748b;font-size:12px;">Searching documents...</div>
+            <div style="display:flex;gap:3px;">
+              <div style="width:4px;height:4px;background:#06b6d4;border-radius:50%;"></div>
+              <div style="width:4px;height:4px;background:#3b82f6;border-radius:50%;"></div>
+              <div style="width:4px;height:4px;background:#06b6d4;border-radius:50%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Input -->
+      <div style="padding:12px 16px;border-top:1px solid #1e293b;">
+        <div style="display:flex;gap:8px;align-items:center;background:#1e293b;border-radius:24px;padding:6px 12px;">
+          <div style="width:24px;height:24px;color:#64748b;">📎</div>
+          <div style="flex:1;color:#64748b;font-size:13px;">Ask anything about your documents...</div>
+          <div style="width:32px;height:32px;background:linear-gradient(135deg,#3b82f6,#06b6d4);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;">→</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Agent Panel (collapsible) -->
+    <div style="width:180px;background:#020617;border-left:1px solid #1e293b;padding:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <span style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Agents</span>
+        <div style="width:16px;height:16px;color:#64748b;font-size:10px;">◀</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="background:#1e293b;border-radius:6px;padding:8px;border-left:2px solid #06b6d4;">
+          <div style="color:#e2e8f0;font-size:11px;margin-bottom:2px;">Intent Classifier</div>
+          <div style="color:#22c55e;font-size:9px;">✓ Complete</div>
+        </div>
+        <div style="background:#1e293b;border-radius:6px;padding:8px;border-left:2px solid #3b82f6;">
+          <div style="color:#e2e8f0;font-size:11px;margin-bottom:2px;">Document Search</div>
+          <div style="color:#06b6d4;font-size:9px;">● Running...</div>
+        </div>
+        <div style="background:#1e293b;border-radius:6px;padding:8px;border-left:2px solid #334155;">
+          <div style="color:#94a3b8;font-size:11px;margin-bottom:2px;">Reranker</div>
+          <div style="color:#64748b;font-size:9px;">○ Waiting</div>
+        </div>
+        <div style="background:#1e293b;border-radius:6px;padding:8px;border-left:2px solid #334155;">
+          <div style="color:#94a3b8;font-size:11px;margin-bottom:2px;">Response Synthesis</div>
+          <div style="color:#64748b;font-size:9px;">○ Waiting</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="pros-cons" style="margin-top:20px;">
+  <div class="pros">
+    <h4>What you get</h4>
+    <ul>
+      <li>Sidebar with session history</li>
+      <li>Quick actions for docs/settings</li>
+      <li>Collapsible agent panel (toggle on/off)</li>
+      <li>Real-time agent execution status</li>
+      <li>Clean, focused chat experience</li>
+    </ul>
+  </div>
+  <div class="cons">
+    <h4>Notes</h4>
+    <ul>
+      <li>Agent panel can collapse on mobile</li>
+      <li>Sidebar collapses to icon-only on smaller screens</li>
+    </ul>
+  </div>
+</div>
+
+<p style="margin-top:20px;font-size:14px;color:#3b82f6;font-weight:500;">Does this combined layout work for you?</p>
+<div style="display:flex;gap:12px;margin-top:12px;">
+  <div class="option" data-choice="yes" onclick="toggleSelect(this)" style="padding:12px 24px;background:#3b82f6;color:white;border-radius:8px;cursor:pointer;display:inline-block;">
+    Yes, this is perfect!
+  </div>
+  <div class="option" data-choice="tweaks" onclick="toggleSelect(this)" style="padding:12px 24px;background:#1e293b;color:#94a3b8;border-radius:8px;cursor:pointer;display:inline-block;">
+    Needs some tweaks
+  </div>
+</div>

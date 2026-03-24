@@ -1,0 +1,123 @@
+<h2>High-Level Architecture</h2>
+<p class="subtitle">System overview showing how dashboard and widget work together</p>
+
+<div class="mockup" style="padding: 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px;">
+  <div style="background: rgba(255,255,255,0.95); padding: 24px; border-radius: 12px; backdrop-filter: blur(10px);">
+
+    <!-- Architecture Diagram -->
+    <div style="margin-bottom: 24px;">
+      <div style="font-weight: 600; margin-bottom: 16px; font-size: 14px; color: #666;">SYSTEM ARCHITECTURE</div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+
+        <!-- Dashboard App -->
+        <div style="border: 2px solid #667eea; border-radius: 12px; padding: 16px; background: #fafafa;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+            <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600;">D</div>
+            <div>
+              <div style="font-weight: 600;">Dashboard App</div>
+              <div style="font-size: 11px; color: #666;">Next.js 14 (App Router)</div>
+            </div>
+          </div>
+          <div style="font-size: 12px; color: #666;">
+            <div style="margin-bottom: 4px;">• User authentication & workspace</div>
+            <div style="margin-bottom: 4px;">• Chatbot management (CRUD)</div>
+            <div style="margin-bottom: 4px;">• Document upload & indexing</div>
+            <div style="margin-bottom: 4px;">• Widget customization UI</div>
+            <div style="margin-bottom: 4px;">• Analytics dashboards</div>
+            <div>• Billing & subscription</div>
+          </div>
+        </div>
+
+        <!-- Widget Bundle -->
+        <div style="border: 2px solid #f093fb; border-radius: 12px; padding: 16px; background: #fafafa;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+            <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600;">W</div>
+            <div>
+              <div style="font-weight: 600;">Widget Bundle</div>
+              <div style="font-size: 11px; color: #666;">Vite + React (~50KB gzip)</div>
+            </div>
+          </div>
+          <div style="font-size: 12px; color: #666;">
+            <div style="margin-bottom: 4px;">• Chat bubble & window UI</div>
+            <div style="margin-bottom: 4px;">• WebSocket streaming</div>
+            <div style="margin-bottom: 4px;">• Theme injection (colors, fonts)</div>
+            <div style="margin-bottom: 4px;">• Position & behavior config</div>
+            <div style="margin-bottom: 4px;">• Smart trigger logic</div>
+            <div>• Embedded on customer sites</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Backend API -->
+      <div style="margin-top: 24px; border: 2px solid #4f46e5; border-radius: 12px; padding: 16px; background: #fafafa;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+          <div style="width: 40px; height: 40px; background: #4f46e5; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600;">API</div>
+          <div>
+            <div style="font-weight: 600;">Backend API (Existing FastAPI)</div>
+            <div style="font-size: 11px; color: #666;">Extended with new endpoints</div>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; font-size: 12px;">
+          <div style="background: white; padding: 8px; border-radius: 6px; border: 1px solid #ddd;">
+            <div style="font-weight: 600; margin-bottom: 4px;">New Endpoints</div>
+            <div style="color: #666;">/chatbots, /chatbots/:id<br>/billing, /analytics</div>
+          </div>
+          <div style="background: white; padding: 8px; border-radius: 6px; border: 1px solid #ddd;">
+            <div style="font-weight: 600; margin-bottom: 4px;">Auth</div>
+            <div style="color: #666;">Magic link + OAuth<br>JWT tokens</div>
+          </div>
+          <div style="background: white; padding: 8px; border-radius: 6px; border: 1px solid #ddd;">
+            <div style="font-weight: 600; margin-bottom: 4px;">Multi-tenancy</div>
+            <div style="color: #666;">Per-chatbot document<br>isolation in Milvus</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Embed Flow -->
+      <div style="margin-top: 24px; padding: 16px; background: linear-gradient(135deg, rgba(102,126,234,0.1) 0%, rgba(118,75,162,0.1) 100%); border-radius: 8px;">
+        <div style="font-weight: 600; margin-bottom: 8px;">How Embedding Works</div>
+        <div style="font-size: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <div style="background: white; padding: 8px 12px; border-radius: 6px; border: 1px solid #ddd;">1. User configures bot in dashboard</div>
+          <span style="color: #667eea;">→</span>
+          <div style="background: white; padding: 8px 12px; border-radius: 6px; border: 1px solid #ddd;">2. Gets embed script with bot ID</div>
+          <span style="color: #667eea;">→</span>
+          <div style="background: white; padding: 8px 12px; border-radius: 6px; border: 1px solid #ddd;">3. Adds script to their website</div>
+          <span style="color: #667eea;">→</span>
+          <div style="background: white; padding: 8px 12px; border-radius: 6px; border: 1px solid #ddd;">4. Widget loads & connects to API</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div style="margin-top: 24px; padding: 16px; background: #fff3e0; border-radius: 8px; border-left: 4px solid #ff9800;">
+  <div style="font-weight: 600; margin-bottom: 8px;">📁 New Project Structure</div>
+  <div style="font-family: monospace; font-size: 12px; background: #fafafa; padding: 12px; border-radius: 4px;">
+    <div>frontend/</div>
+    <div style="margin-left: 16px; color: #667eea;">├── dashboard/  <span style="color: #666;"># Next.js 14 app</span></div>
+    <div style="margin-left: 32px;">├── app/</div>
+    <div style="margin-left: 48px;">├── (auth)/  <span style="color: #999;"># login, signup</span></div>
+    <div style="margin-left: 48px;">├── (dashboard)/  <span style="color: #999;"># main app</span></div>
+    <div style="margin-left: 64px;">├── chatbots/</div>
+    <div style="margin-left: 80px;">├── [id]/  <span style="color: #999;"># tabs: docs, design, analytics, embed</span></div>
+    <div style="margin-left: 48px;">├── settings/</div>
+    <div style="margin-left: 48px;">├── billing/</div>
+    <div style="margin-left: 32px;">├── components/</div>
+    <div style="margin-left: 48px;">├── ui/  <span style="color: #999;"># glass cards, gradients, etc.</span></div>
+    <div style="margin-left: 48px;">├── dashboard/</div>
+    <div style="margin-left: 48px;">├── chat/</div>
+    <div style="margin-left: 16px; color: #f093fb;">├── widget/  <span style="color: #666;"># Standalone widget</span></div>
+    <div style="margin-left: 32px;">├── src/</div>
+    <div style="margin-left: 48px;">├── ChatWidget.tsx</div>
+    <div style="margin-left: 48px;">├── components/</div>
+    <div style="margin-left: 48px;">├── hooks/</div>
+    <div style="margin-left: 32px;">├── vite.config.ts</div>
+    <div style="margin-left: 32px;">├── dist/  <span style="color: #999;"># Built bundle</span></div>
+    <div style="margin-left: 16px; color: #4f46e5;">├── shared/  <span style="color: #666;"># Shared code</span></div>
+    <div style="margin-left: 32px;">├── types/</div>
+    <div style="margin-left: 32px;">├── api/</div>
+    <div style="margin-left: 32px;">├── utils/</div>
+  </div>
+</div>

@@ -1,0 +1,154 @@
+<h2>How should users manage multiple chatbots?</h2>
+<p class="subtitle">Click to select - each shows a different organization approach</p>
+
+<div class="options">
+  <div class="option" data-choice="single" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Single Workspace</h3>
+      <p>One account with multiple chatbots, each isolated</p>
+      <div class="mockup" style="margin-top: 12px; background: #f8f9fa; padding: 16px; border-radius: 8px;">
+        <div style="display: flex; gap: 16px;">
+          <div style="width: 200px; border-right: 1px solid #ddd; padding-right: 16px;">
+            <div style="font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+              <span>🏠</span> My Workspace
+            </div>
+            <div style="padding: 8px; background: #007bff; color: white; border-radius: 4px; margin-bottom: 4px;">💬 Support Bot</div>
+            <div style="padding: 8px; background: white; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 4px;">🛒 Sales Bot</div>
+            <div style="padding: 8px; background: white; border: 1px solid #ddd; border-radius: 4px;">📚 FAQ Bot</div>
+          </div>
+          <div style="flex: 1; background: white; padding: 16px; border-radius: 8px; border: 1px solid #ddd;">
+            <div style="font-weight: 600; margin-bottom: 8px;">💬 Support Bot</div>
+            <div style="font-size: 12px; color: #666; margin-bottom: 12px;">Documents: 5 | Created: Mar 15</div>
+            <div style="border-top: 1px solid #eee; padding-top: 12px;">
+              <div style="display: flex; gap: 8px;">
+                <span style="padding: 4px 8px; background: #e3f2fd; border-radius: 4px; font-size: 11px;">📄 Documents</span>
+                <span style="padding: 4px 8px; background: #f5f5f5; border-radius: 4px; font-size: 11px;">🎨 Design</span>
+                <span style="padding: 4px 8px; background: #f5f5f5; border-radius: 4px; font-size: 11px;">🔗 Embed</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="team" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Team Workspaces</h3>
+      <p>Separate workspaces for teams/departments (like Slack)</p>
+      <div class="mockup" style="margin-top: 12px; background: #f8f9fa; padding: 16px; border-radius: 8px;">
+        <div style="display: flex; gap: 16px;">
+          <div style="width: 200px; border-right: 1px solid #ddd; padding-right: 16px;">
+            <div style="font-weight: 600; margin-bottom: 8px; font-size: 12px; color: #666;">WORKSPACES</div>
+            <div style="padding: 8px; background: #007bff; color: white; border-radius: 4px; margin-bottom: 4px;">🏢 Acme Corp</div>
+            <div style="padding: 8px; background: white; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 4px;">🛍️ E-commerce Team</div>
+            <div style="padding: 8px; background: white; border: 1px solid #ddd; border-radius: 4px;">🔧 Dev Tools</div>
+            <div style="margin-top: 12px; padding: 8px; text-align: center; border: 1px dashed #999; border-radius: 4px; font-size: 12px; color: #666;">+ New Workspace</div>
+          </div>
+          <div style="flex: 1; background: white; padding: 16px; border-radius: 8px; border: 1px solid #ddd;">
+            <div style="font-weight: 600; margin-bottom: 12px;">🏢 Acme Corp - Chatbots</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <div style="border: 1px solid #ddd; padding: 12px; border-radius: 8px;">
+                <div style="font-weight: 600;">💬 Support Bot</div>
+                <div style="font-size: 11px; color: #666; margin-top: 4px;">3 documents</div>
+              </div>
+              <div style="border: 1px solid #ddd; padding: 12px; border-radius: 8px;">
+                <div style="font-weight: 600;">📞 Sales Bot</div>
+                <div style="font-size: 11px; color: #666; margin-top: 4px;">7 documents</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="simple" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Simple List View</h3>
+      <p>Clean list of chatbots with quick actions</p>
+      <div class="mockup" style="margin-top: 12px; background: #f8f9fa; padding: 16px; border-radius: 8px;">
+        <div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #ddd;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div style="font-weight: 600;">My Chatbots</div>
+            <button style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">+ Create New</button>
+          </div>
+          <div style="border: 1px solid #ddd; padding: 12px; margin-bottom: 8px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <div style="font-weight: 600;">💬 Customer Support Bot</div>
+              <div style="font-size: 12px; color: #666; margin-top: 4px;">12 conversations today</div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button style="padding: 6px 12px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer;">Edit</button>
+              <button style="padding: 6px 12px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer;">View</button>
+            </div>
+          </div>
+          <div style="border: 1px solid #ddd; padding: 12px; margin-bottom: 8px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <div style="font-weight: 600;">🛒 Product Recommendation Bot</div>
+              <div style="font-size: 12px; color: #666; margin-top: 4px;">8 conversations today</div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button style="padding: 6px 12px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer;">Edit</button>
+              <button style="padding: 6px 12px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer;">View</button>
+            </div>
+          </div>
+          <div style="border: 1px solid #ddd; padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <div style="font-weight: 600;">📚 Internal Knowledge Base</div>
+              <div style="font-size: 12px; color: #666; margin-top: 4px;">3 conversations today</div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button style="padding: 6px 12px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer;">Edit</button>
+              <button style="padding: 6px 12px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer;">View</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="folder" onclick="toggleSelect(this)">
+    <div class="letter">D</div>
+    <div class="content">
+      <h3>Folder Organization</h3>
+      <p>Organize chatbots into folders by category/project</p>
+      <div class="mockup" style="margin-top: 12px; background: #f8f9fa; padding: 16px; border-radius: 8px;">
+        <div style="display: flex; gap: 16px;">
+          <div style="width: 200px; border-right: 1px solid #ddd; padding-right: 16px;">
+            <div style="font-weight: 600; margin-bottom: 12px;">Folders</div>
+            <div style="padding: 8px; border-radius: 4px; margin-bottom: 4px;">
+              <span style="margin-right: 8px;">📁</span> All Chatbots
+            </div>
+            <div style="padding: 8px; background: #007bff; color: white; border-radius: 4px; margin-bottom: 4px;">
+              <span style="margin-right: 8px;">📁</span> Customer Facing
+            </div>
+            <div style="padding: 8px; border-radius: 4px; margin-bottom: 4px;">
+              <span style="margin-right: 8px;">📁</span> Internal Tools
+            </div>
+            <div style="padding: 8px; border-radius: 4px;">
+              <span style="margin-right: 8px;">📁</span> Testing
+            </div>
+            <div style="margin-top: 12px; padding: 8px; text-align: center; border: 1px dashed #999; border-radius: 4px; font-size: 12px; color: #666;">+ New Folder</div>
+          </div>
+          <div style="flex: 1; background: white; padding: 16px; border-radius: 8px; border: 1px solid #ddd;">
+            <div style="font-weight: 600; margin-bottom: 12px;">📁 Customer Facing (2 bots)</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <div style="border: 1px solid #ddd; padding: 12px; border-radius: 8px;">
+                <div style="font-weight: 600;">💬 Support Bot</div>
+                <div style="font-size: 11px; color: #666; margin-top: 4px;">Active • 5 docs</div>
+              </div>
+              <div style="border: 1px solid #ddd; padding: 12px; border-radius: 8px;">
+                <div style="font-weight: 600;">📞 Sales Bot</div>
+                <div style="font-size: 11px; color: #666; margin-top: 4px;">Active • 7 docs</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

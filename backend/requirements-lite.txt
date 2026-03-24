@@ -1,0 +1,72 @@
+# ========================================
+# LIGHTWEIGHT CPU-ONLY REQUIREMENTS
+# ========================================
+# This is a minimal setup for running on personal systems without GPU.
+# Replaces: Milvus -> ChromaDB, Local embeddings -> Gemini API
+
+# FastAPI and Web Server
+fastapi==0.104.1
+uvicorn==0.24.0
+python-multipart==0.0.6
+pydantic>=2.7.0,<3.0.0
+pydantic-settings>=2.3.0
+python-dotenv==1.0.0
+
+# LangGraph and LangChain
+langgraph>=0.2.0
+langchain>=0.3.0
+langchain-google-genai>=2.0.0
+langchain-community>=0.0.10
+
+# LLM (Gemini)
+google-generativeai>=0.3.0
+
+# Vector Database (ChromaDB - lightweight, pure Python)
+chromadb>=0.4.0
+
+# Database (PostgreSQL + Alembic) - still need for LangGraph checkpointer
+psycopg2-binary>=2.9.0
+sqlalchemy>=2.0.0
+alembic>=1.13.0
+asyncpg>=0.29.0
+
+# Cache (Redis)
+redis>=5.0.0
+
+# OCR - Azure Document Intelligence (cloud-based, lightweight)
+azure-ai-formrecognizer>=3.3.0
+# Pillow>=10.0.0  # Only if processing images locally
+
+# Web Search
+tavily-python>=0.3.0
+
+# WebSocket
+websockets>=12.0
+
+# Document Processing
+PyPDF2>=3.0.1
+python-docx>=0.8.11
+
+# HTTP
+requests>=2.31.0
+
+# Logging (optional - can remove for local dev)
+# python-logging-loki>=0.3.0
+
+# CORS
+fastapi-cors==0.0.6
+
+# ========================================
+# REMOVED HEAVY DEPENDENCIES:
+# - pymilvus (Milvus client)
+# - sentence-transformers (local embedding models)
+# - FlagEmbedding (BAAI embeddings)
+# - paddleocr, paddlepaddle (heavy OCR)
+# - opencv-python (heavy computer vision)
+# ========================================
+
+# Memory savings vs full setup:
+# - Milvus/etcd/minio: ~2GB RAM -> 0 (ChromaDB is embedded)
+# - Local embedding models: ~1-2GB -> 0 (uses Gemini API)
+# - PaddleOCR: ~500MB -> 0 (optional/removed)
+# Total savings: ~3-4GB RAM

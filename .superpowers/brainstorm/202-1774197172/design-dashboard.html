@@ -1,0 +1,200 @@
+<h2>Dashboard Structure & Navigation</h2>
+<p class="subtitle">Main layout with workspace, chatbot list, and tab navigation</p>
+
+<div class="mockup" style="padding: 0; background: #f0f2f5; border-radius: 12px; overflow: hidden; border: 1px solid #ddd;">
+
+  <!-- Browser Chrome -->
+  <div style="background: #e0e0e0; padding: 8px 12px; display: flex; gap: 6px; border-bottom: 1px solid #ccc;">
+    <div style="width: 12px; height: 12px; background: #ff5f57; border-radius: 50%;"></div>
+    <div style="width: 12px; height: 12px; background: #ffbd2e; border-radius: 50%;"></div>
+    <div style="width: 12px; height: 12px; background: #28c840; border-radius: 50%;"></div>
+    <div style="flex: 1; text-align: center; font-size: 11px; color: #666;">ChatbotAI Dashboard</div>
+  </div>
+
+  <!-- Main Layout -->
+  <div style="display: flex; min-height: 500px;">
+
+    <!-- Sidebar -->
+    <div style="width: 240px; background: linear-gradient(180deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px;">
+
+      <!-- Logo -->
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.2);">
+        <div style="width: 36px; height: 36px; background: rgba(255,255,255,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px;">🤖</div>
+        <div>
+          <div style="font-weight: 600;">ChatbotAI</div>
+          <div style="font-size: 10px; opacity: 0.8;">Platform</div>
+        </div>
+      </div>
+
+      <!-- Workspace -->
+      <div style="margin-bottom: 16px;">
+        <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.7; margin-bottom: 8px;">Workspace</div>
+        <div style="background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2);">
+          <div style="font-weight: 500;">🏠 My Workspace</div>
+          <div style="font-size: 11px; opacity: 0.8; margin-top: 4px;">3 chatbots</div>
+        </div>
+      </div>
+
+      <!-- Chatbots List -->
+      <div style="margin-bottom: 16px;">
+        <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.7; margin-bottom: 8px;">Chatbots</div>
+
+        <div style="background: rgba(255,255,255,0.25); padding: 10px 12px; border-radius: 8px; margin-bottom: 6px; cursor: pointer; border: 1px solid rgba(255,255,255,0.3);">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span>💬</span>
+            <div style="flex: 1;">
+              <div style="font-weight: 500;">Customer Support</div>
+              <div style="font-size: 10px; opacity: 0.8;">5 docs • Active</div>
+            </div>
+            <div style="width: 6px; height: 6px; background: #4ade80; border-radius: 50%;"></div>
+          </div>
+        </div>
+
+        <div style="padding: 10px 12px; border-radius: 8px; margin-bottom: 6px; cursor: pointer; opacity: 0.8;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span>🛒</span>
+            <div style="flex: 1;">
+              <div style="font-weight: 500;">Sales Assistant</div>
+              <div style="font-size: 10px; opacity: 0.7;">12 docs • Active</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding: 10px 12px; border-radius: 8px; margin-bottom: 6px; cursor: pointer; opacity: 0.8;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span>📚</span>
+            <div style="flex: 1;">
+              <div style="font-weight: 500;">Knowledge Base</div>
+              <div style="font-size: 10px; opacity: 0.7;">8 docs • Draft</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- New Chatbot Button -->
+        <div style="padding: 10px 12px; border-radius: 8px; cursor: pointer; border: 1px dashed rgba(255,255,255,0.4); text-align: center; margin-top: 8px;">
+          <div style="font-size: 12px;">+ New Chatbot</div>
+        </div>
+      </div>
+
+      <!-- Bottom Nav -->
+      <div style="position: absolute; bottom: 16px; left: 16px; right: 16px;">
+        <div style="padding: 10px 12px; border-radius: 8px; cursor: pointer; opacity: 0.8; margin-bottom: 6px;">
+          <span>⚙️</span> Settings
+        </div>
+        <div style="padding: 10px 12px; border-radius: 8px; cursor: pointer; opacity: 0.8;">
+          <span>💳</span> Billing
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div style="flex: 1; padding: 24px;">
+
+      <!-- Header -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <div>
+          <div style="font-size: 11px; color: #666; margin-bottom: 4px;">Dashboard / Chatbots</div>
+          <div style="font-size: 24px; font-weight: 600;">💬 Customer Support</div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <div style="padding: 8px 16px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; font-size: 13px;">Preview</div>
+          <div style="padding: 8px 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 6px; cursor: pointer; font-size: 13px;">Get Embed Code</div>
+        </div>
+      </div>
+
+      <!-- Stats Cards -->
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;">
+        <div style="background: rgba(255,255,255,0.7); backdrop-filter: blur(10px); padding: 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.5);">
+          <div style="font-size: 28px; font-weight: 600; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">5</div>
+          <div style="font-size: 12px; color: #666;">Documents</div>
+        </div>
+        <div style="background: rgba(255,255,255,0.7); backdrop-filter: blur(10px); padding: 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.5);">
+          <div style="font-size: 28px; font-weight: 600; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">1,234</div>
+          <div style="font-size: 12px; color: #666;">Conversations</div>
+        </div>
+        <div style="background: rgba(255,255,255,0.7); backdrop-filter: blur(10px); padding: 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.5);">
+          <div style="font-size: 28px; font-weight: 600; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">98%</div>
+          <div style="font-size: 12px; color: #666;">Accuracy</div>
+        </div>
+        <div style="background: rgba(255,255,255,0.7); backdrop-filter: blur(10px); padding: 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.5);">
+          <div style="font-size: 28px; font-weight: 600; background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">4.8</div>
+          <div style="font-size: 12px; color: #666;">Avg Rating</div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div style="background: rgba(255,255,255,0.8); backdrop-filter: blur(10px); border-radius: 12px; border: 1px solid rgba(255,255,255,0.5); overflow: hidden;">
+        <div style="display: flex; border-bottom: 1px solid rgba(0,0,0,0.08); padding: 0 16px;">
+          <div style="padding: 16px 20px; cursor: pointer; border-bottom: 2px solid #667eea; color: #667eea; font-weight: 500;">📄 Documents</div>
+          <div style="padding: 16px 20px; cursor: pointer; color: #666;">🎨 Appearance</div>
+          <div style="padding: 16px 20px; cursor: pointer; color: #666;">🤖 Behavior</div>
+          <div style="padding: 16px 20px; cursor: pointer; color: #666;">🔗 Integration</div>
+          <div style="padding: 16px 20px; cursor: pointer; color: #666;">📊 Analytics</div>
+        </div>
+
+        <!-- Tab Content -->
+        <div style="padding: 24px;">
+          <!-- Upload Area -->
+          <div style="border: 2px dashed rgba(102,126,234,0.4); padding: 40px; text-align: center; border-radius: 12px; background: rgba(102,126,234,0.05); margin-bottom: 24px;">
+            <div style="font-size: 48px; margin-bottom: 12px;">📁</div>
+            <div style="font-weight: 500; margin-bottom: 8px;">Drop files here or click to upload</div>
+            <div style="font-size: 13px; color: #666;">PDF, DOC, DOCX, TXT (max 10MB each)</div>
+          </div>
+
+          <!-- Document List -->
+          <div style="font-weight: 500; margin-bottom: 12px;">Uploaded Documents (5)</div>
+          <div style="background: white; padding: 12px 16px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="width: 36px; height: 36px; background: #fee2e2; border-radius: 6px; display: flex; align-items: center; justify-content: center;">📄</div>
+              <div>
+                <div style="font-weight: 500;">product_manual.pdf</div>
+                <div style="font-size: 11px; color: #666;">2.4 MB • Uploaded Mar 15</div>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="padding: 4px 8px; background: #dcfce7; color: #166534; border-radius: 4px; font-size: 11px;">✓ Indexed</span>
+              <button style="background: none; border: none; cursor: pointer; color: #999;">🗑️</button>
+            </div>
+          </div>
+          <div style="background: white; padding: 12px 16px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="width: 36px; height: 36px; background: #dbeafe; border-radius: 6px; display: flex; align-items: center; justify-content: center;">📄</div>
+              <div>
+                <div style="font-weight: 500;">faq_document.docx</div>
+                <div style="font-size: 11px; color: #666;">856 KB • Uploaded Mar 14</div>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="padding: 4px 8px; background: #dcfce7; color: #166534; border-radius: 4px; font-size: 11px;">✓ Indexed</span>
+              <button style="background: none; border: none; cursor: pointer; color: #999;">🗑️</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+  <div style="padding: 16px; background: #e8f5e9; border-radius: 8px; border-left: 4px solid #4caf50;">
+    <div style="font-weight: 600; margin-bottom: 8px;">✅ Key Features</div>
+    <ul style="margin: 0; padding-left: 20px; font-size: 13px;">
+      <li>Glass morphism cards with backdrop blur</li>
+      <li>Gradient sidebar with workspace switcher</li>
+      <li>Chatbot list with status indicators</li>
+      <li>Tab navigation for each chatbot</li>
+      <li>Quick stats cards with gradient text</li>
+    </ul>
+  </div>
+  <div style="padding: 16px; background: #e3f2fd; border-radius: 8px; border-left: 4px solid #2196f3;">
+    <div style="font-weight: 600; margin-bottom: 8px;">📋 Tab Structure</div>
+    <ul style="margin: 0; padding-left: 20px; font-size: 13px;">
+      <li><strong>Documents</strong> - Upload & manage knowledge base</li>
+      <li><strong>Appearance</strong> - Colors, fonts, widget design</li>
+      <li><strong>Behavior</strong> - Triggers, greetings, personality</li>
+      <li><strong>Integration</strong> - Embed code, API keys</li>
+      <li><strong>Analytics</strong> - Conversations, metrics, ratings</li>
+    </ul>
+  </div>
+</div>
