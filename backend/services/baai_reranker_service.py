@@ -1,10 +1,11 @@
 """
-BAAI Reranker service for reranking and reordering search results.
-Uses FlagEmbedding for cross-encoder based reranking.
+Reranker service using Gemini LLM for relevance scoring.
+Replaces the local BAAI/FlagEmbedding reranker to eliminate torch dependency.
 """
+import asyncio
+import json
 from typing import List, Dict, Any, Optional
-from FlagEmbedding import FlagReranker
-import torch
+from google import generativeai as genai
 from config import settings
 from config.logging_config import get_logger
 
@@ -12,41 +13,13 @@ logger = get_logger(__name__)
 
 
 class BAARerankerService:
-    """
-    Service for reranking search results using BAAI reranker models.
-    Improves retrieval quality by scoring query-document pairs.
-    """
+    """Service for reranking search results using Gemini."""
 
     def __init__(self):
-        """Initialize the BAAI reranker service."""
-        self.model_name = settings.reranker_model
-        self.device = settings.reranker_device
+        genai.configure(api_key=settings.gemini_api_key)
+        self.model_name = settings.gemini_model
         self.top_k = settings.reranker_top_k
-        self.model: Optional[FlagReranker] = None
-
-        self._load_model()
-
-        logger.info(
-            f"BAAI Reranker service initialized (model: {self.model_name}, "
-            f"device: {self.device})"
-        )
-
-    def _load_model(self) -> None:
-        """Load the reranker model."""
-        try:
-            logger.info(f"Loading reranker model: {self.model_name}")
-
-            self.model = FlagReranker(
-                model_name_or_path=self.model_name,
-                device=self.device,
-            )
-
-            logger.info(f"Reranker model loaded successfully")
-
-        except Exception as e:
-            logger.error(f"Error loading reranker model: {e}")
-            # Continue without reranker - will return original results
-            self.model = None
+        logger.info(f"Gemini Reranker service initialized (model: {self.model_name})")
 
     async def rerank(
         self,
@@ -54,53 +27,95 @@ class BAARerankerService:
         documents: List[Dict[str, Any]],
         top_k: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
-        """
-        Rerank documents based on query relevance.
-
-        Args:
-            query: Search query
-            documents: List of documents with 'content' field
-            top_k: Number of top results to return
-
-        Returns:
-            Reranked list of documents
-        """
         if not documents:
             return []
-
-        if not self.model:
-            logger.warning("Reranker model not loaded, returning original results")
-            return documents[:top_k or self.top_k]
 
         top_k = top_k or self.top_k
 
         try:
-            logger.info(f"Reranking {len(documents)} documents")
+            logger.info(f"Reranking {len(documents)} documents with Gemini")
 
-            # Prepare pairs for reranking
-            pairs = [[query, doc.get("content", "")[:512]] for doc in documents]
+            scored_docs = await self._score_with_gemini(query, documents)
 
-            # Run reranker
-            scores = self.model.compute_score(pairs)
+            scored_docs.sort(key=lambda x: x.get("reranker_score", 0), reverse=True)
+            result = scored_docs[:top_k]
 
-            # Add scores to documents
-            for i, doc in enumerate(documents):
-                doc["reranker_score"] = float(scores[i]) if isinstance(scores, list) else float(scores)
-
-            # Sort by score (descending)
-            reranked = sorted(documents, key=lambda x: x.get("reranker_score", 0), reverse=True)
-
-            # Return top k
-            result = reranked[:top_k]
-
-            logger.info(f"Reranking complete, top score: {result[0].get('reranker_score', 0):.4f}")
+            if result:
+                logger.info(f"Reranking complete, top score: {result[0].get('reranker_score', 0):.2f}")
 
             return result
 
         except Exception as e:
-            logger.error(f"Error in reranking: {e}")
-            # Return original results on error
+            logger.error(f"Error in Gemini reranking: {e}")
             return documents[:top_k]
+
+    async def _score_with_gemini(
+        self,
+        query: str,
+        documents: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        """Score documents using Gemini in batches."""
+        batch_size = 20
+        all_scored = []
+
+        for i in range(0, len(documents), batch_size):
+            batch = documents[i : i + batch_size]
+            scored_batch = await self._score_batch(query, batch)
+            all_scored.extend(scored_batch)
+
+        return all_scored
+
+    async def _score_batch(
+        self,
+        query: str,
+        documents: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        """Score a batch of documents via Gemini."""
+        loop = asyncio.get_event_loop()
+
+        doc_entries = []
+        for idx, doc in enumerate(documents):
+            content = doc.get("content", "")[:500]
+            doc_entries.append(f"[{idx}] {content}")
+
+        docs_text = "\n".join(doc_entries)
+
+        prompt = (
+            f"Rate the relevance of each document to the query on a scale of 0 to 100.\n"
+            f"Query: {query}\n\n"
+            f"Documents:\n{docs_text}\n\n"
+            f"Respond with ONLY a JSON object mapping document index to score. "
+            f"Example: {{\"0\": 85, \"1\": 42}}\n"
+            f"No explanation, just the JSON."
+        )
+
+        def _call():
+            model = genai.GenerativeModel(model_name=self.model_name)
+            response = model.generate_content(prompt)
+            return response.parts[0].text if response.parts else ""
+
+        try:
+            raw = await loop.run_in_executor(None, _call)
+            # Strip markdown code fences if present
+            raw = raw.strip()
+            if raw.startswith("```"):
+                raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
+            if raw.endswith("```"):
+                raw = raw[:-3]
+            raw = raw.strip()
+
+            scores = json.loads(raw)
+
+            for idx, doc in enumerate(documents):
+                score = scores.get(str(idx), 50)
+                doc["reranker_score"] = float(score) / 100.0
+
+        except (json.JSONDecodeError, Exception) as e:
+            logger.warning(f"Gemini reranker parse error, using default scores: {e}")
+            for doc in documents:
+                doc["reranker_score"] = 0.5
+
+        return documents
 
     async def rerank_with_merge(
         self,
@@ -109,47 +124,18 @@ class BAARerankerService:
         web_results: List[Dict[str, Any]],
         top_k: int = 10,
     ) -> List[Dict[str, Any]]:
-        """
-        Merge and rerank results from multiple sources.
-
-        Args:
-            query: Search query
-            document_results: Results from document search
-            web_results: Results from web search
-            top_k: Number of results to return
-
-        Returns:
-            Merged and reranked results
-        """
-        # Combine results with source tracking
         all_results = []
-
         for doc in document_results:
-            all_results.append({
-                "content": doc.get("content", ""),
-                "source": "document",
-                "metadata": doc,
-            })
-
+            all_results.append({"content": doc.get("content", ""), "source": "document", "metadata": doc})
         for web in web_results:
-            all_results.append({
-                "content": web.get("snippet", web.get("content", "")),
-                "source": "web",
-                "metadata": web,
-            })
-
-        # Rerank combined results
-        reranked = await self.rerank(query, all_results, top_k=top_k)
-
-        return reranked
+            all_results.append({"content": web.get("snippet", web.get("content", "")), "source": "web", "metadata": web})
+        return await self.rerank(query, all_results, top_k=top_k)
 
 
-# Global reranker service instance
 _reranker_service: Optional[BAARerankerService] = None
 
 
 def get_reranker_service() -> BAARerankerService:
-    """Get or create the global reranker service instance."""
     global _reranker_service
     if _reranker_service is None:
         _reranker_service = BAARerankerService()

@@ -21,6 +21,29 @@ class Settings(BaseSettings):
     # Environment detection
     environment: str = Field(default="development", description="Environment (development/production)")
 
+    # Security
+    secret_key: str = Field(
+        default="change-this-in-production-use-at-least-32-chars",
+        description="Secret key for JWT signing and cryptographic operations"
+    )
+
+    @field_validator("secret_key")
+    @classmethod
+    def validate_secret_key(cls, v: str, info) -> str:
+        """Validate secret key is secure in production."""
+        env = info.data.get("environment", "development")
+        if env == "production" and (not v or v.startswith("change-this")):
+            raise ValueError("SECRET_KEY must be set to a secure value in production")
+        if env == "production" and len(v) < 32:
+            raise ValueError("SECRET_KEY must be at least 32 characters in production")
+        return v
+
+    # Base URL for external access
+    base_url: str = Field(
+        default="http://localhost:8000",
+        description="Base URL for external access (used for embed codes, webhooks, etc.)"
+    )
+
     @field_validator("integration_api_key")
     @classmethod
     def validate_integration_api_key(cls, v: str, info) -> str:
@@ -50,7 +73,7 @@ class Settings(BaseSettings):
     milvus_host: str = Field(default="localhost", description="Milvus host")
     milvus_port: int = Field(default=19530, description="Milvus port")
     milvus_collection_name: str = Field(default="document_embeddings", description="Milvus collection name")
-    milvus_dimension: int = Field(default=1024, description="Embedding dimension (max for all models)")
+    milvus_dimension: int = Field(default=768, description="Embedding dimension (must match default_embedding_model)")
 
     # PostgreSQL Database
     postgres_url: str = Field(default="", description="PostgreSQL connection URL (required)")
@@ -77,22 +100,31 @@ class Settings(BaseSettings):
     tavily_api_key: str = Field(default="", description="Tavily API key for web search")
     tavily_max_results: int = Field(default=10, description="Max results from Tavily")
 
-    # Embedding Models (All 3)
+    # Embedding Models (Gemini API — zero local memory)
     embedding_models: List[str] = Field(
-        default=["bge-small-en-v1.5", "bge-large-en-v1.5", "stella-en-400M-v5"],
+        default=["gemini-text-embedding-004"],
         description="List of embedding models to use simultaneously"
     )
-    default_embedding_model: str = Field(default="bge-large-en-v1.5", description="Default embedding model")
+    default_embedding_model: str = Field(default="gemini-text-embedding-004", description="Default embedding model")
     embedding_device: str = Field(default="cpu", description="Device for embeddings (cpu/cuda)")
 
     # Reranker
-    reranker_model: str = Field(default="bge-reranker-v2-m3", description="BAAI reranker model")
+    reranker_model: str = Field(default="gemini-reranker", description="Reranker implementation")
     reranker_device: str = Field(default="cpu", description="Device for reranker (cpu/cuda)")
     reranker_top_k: int = Field(default=10, description="Top-k results after reranking")
 
-    # OCR
-    ocr_lang: List[str] = Field(default=["en"], description="OCR languages")
-    ocr_use_gpu: bool = Field(default=False, description="Use GPU for OCR")
+    # OCR Configuration (Azure Document Intelligence — prebuilt-layout)
+    azure_doc_intelligence_endpoint: str = Field(
+
+    # Azure Document Intelligence (default OCR)
+    azure_doc_intelligence_endpoint: str = Field(
+        default="",
+        description="Azure Document Intelligence endpoint"
+    )
+    azure_doc_intelligence_key: str = Field(
+        default="",
+        description="Azure Document Intelligence API key"
+    )
 
     # Document Processing
     chunk_size: int = Field(default=1000, description="Text chunk size")
@@ -126,15 +158,13 @@ def get_settings() -> Settings:
 
 # Model dimensions for validation
 EMBEDDING_DIMENSIONS = {
-    "bge-small-en-v1.5": 384,
-    "bge-large-en-v1.5": 1024,
-    "stella-en-400M-v5": 1024,
+    "gemini-text-embedding-004": 768,
 }
 
 
 def get_embedding_dimension(model_name: str) -> int:
     """Get the embedding dimension for a specific model."""
-    return EMBEDDING_DIMENSIONS.get(model_name, 1024)  # Default to 1024
+    return EMBEDDING_DIMENSIONS.get(model_name, 768)
 
 
 def validate_embedding_models() -> bool:

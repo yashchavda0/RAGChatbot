@@ -34,15 +34,27 @@ class ResponseSynthesisAgent(BaseAgent):
         )
 
         try:
-            from services.gemini_service import GeminiService
+            from services.gemini_service import get_gemini_service
 
-            gemini_service = GeminiService()
+            gemini_service = get_gemini_service()
 
-            # Build context from reranked results
+            # Build context from reranked results (or raw results if reranking was skipped)
             context_parts = []
             sources = []
 
-            for i, result in enumerate(state.get("reranked_results", [])[:5], 1):
+            results = state.get("reranked_results", [])
+            if not results:
+                # Reranker was skipped - combine raw results directly
+                for doc in state.get("documents", []):
+                    results.append({"content": doc.get("content", ""), "source": "document", "metadata": doc})
+                for web in state.get("web_results", []):
+                    results.append({"content": web.get("content", web.get("snippet", "")), "source": "web", "metadata": web})
+                for ocr in state.get("ocr_results", []):
+                    results.append({"content": ocr.get("text", ""), "source": "ocr", "metadata": ocr})
+                for url in state.get("url_results", []):
+                    results.append({"content": url.get("text", ""), "source": "url", "metadata": url})
+
+            for i, result in enumerate(results[:5], 1):
                 content = result.get("content", "")
                 source_type = result.get("source", "unknown")
                 metadata = result.get("metadata", {})

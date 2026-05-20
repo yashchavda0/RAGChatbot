@@ -15,7 +15,7 @@ interface UseChatReturn {
   clearMessages: () => void;
 }
 
-export function useChat(sessionId: string = 'default'): UseChatReturn {
+export function useChat(chatbotId: string, sessionId: string = 'default'): UseChatReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [agentExecutions, setAgentExecutions] = useState<AgentExecution[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -111,10 +111,8 @@ export function useChat(sessionId: string = 'default'): UseChatReturn {
 
   // Initialize WebSocket connection on mount
   useEffect(() => {
-    if (!isConnected && sessionId) {
-      connect(sessionId);
-    }
-  }, [sessionId, isConnected, connect]);
+    connect(chatbotId, sessionId);
+  }, [chatbotId, sessionId, connect]);
 
   const sendMessage = useCallback(async (content: string) => {
     if (!content.trim()) return;
@@ -155,7 +153,7 @@ export function useChat(sessionId: string = 'default'): UseChatReturn {
         });
       } else {
         // Fallback to HTTP POST if WebSocket not connected
-        const response = await fetch(`${API_URL}/chat`, {
+        const response = await fetch(`${API_URL}/chat/${chatbotId}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

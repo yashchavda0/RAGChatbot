@@ -8,7 +8,60 @@ from sqlalchemy.sql import func
 from datetime import datetime
 import uuid
 
+# Note: uuid is used for generating primary keys
+
 Base = declarative_base()
+
+
+# =============================================================================
+# CHATBOT MODELS (Multi-tenant RAG)
+# =============================================================================
+
+class Chatbot(Base):
+    """Chatbot configuration table for multi-tenant RAG."""
+    __tablename__ = "chatbots"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    system_prompt = Column(Text, default="You are a helpful assistant. Answer based only on the provided context.")
+    status = Column(String(50), default="draft")  # draft, training, active, error
+    embedding_model = Column(String(100), default="bge-large-en-v1.5")
+    chunk_size = Column(Integer, default=1024)
+    chunk_overlap = Column(Integer, default=50)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class ChatbotDocument(Base):
+    """Documents associated with a chatbot's knowledge base."""
+    __tablename__ = "chatbot_documents"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    chatbot_id = Column(String(36), index=True, nullable=False)
+    filename = Column(String(255))
+    source_type = Column(String(50))  # upload, url, text
+    source_url = Column(Text)
+    file_size = Column(BigInteger)
+    status = Column(String(50), default="pending")  # pending, processing, completed, error
+    chunks_count = Column(Integer, default=0)
+    error_message = Column(Text)
+    created_at = Column(DateTime, default=func.now())
+    processed_at = Column(DateTime)
+
+
+class ChatbotMetadata(Base):
+    """Tracking metadata for chatbot training status."""
+    __tablename__ = "chatbot_metadata"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    chatbot_id = Column(String(36), index=True, nullable=False, unique=True)
+    total_chunks = Column(Integer, default=0)
+    total_documents = Column(Integer, default=0)
+    training_progress = Column(Integer, default=0)  # 0-100
+    last_trained_at = Column(DateTime)
+    training_error = Column(Text)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
 
 # =============================================================================
@@ -46,7 +99,7 @@ class AgentExecution(Base):
     completed_at = Column(DateTime)
     execution_time_ms = Column(Integer)
     error_message = Column(Text)
-    metadata = Column(JSON)
+    meta_data = Column(JSON)
 
 
 # =============================================================================
@@ -61,7 +114,7 @@ class Session(Base):
     user_id = Column(String(255), index=True)
     created_at = Column(DateTime, default=func.now())
     last_activity = Column(DateTime, default=func.now(), onupdate=func.now())
-    metadata = Column(JSON)
+    meta_data = Column(JSON)
     is_active = Column(Boolean, default=True)
 
 
@@ -77,7 +130,7 @@ class ConversationMessage(Base):
     agent_executions = Column(JSON)  # Link to agent executions
     workflow_execution_id = Column(String(36))  # Link to workflow execution
     timestamp = Column(DateTime, default=func.now(), index=True)
-    metadata = Column(JSON)
+    meta_data = Column(JSON)
 
 
 # =============================================================================
@@ -94,7 +147,7 @@ class Document(Base):
     file_type = Column(String(50))  # pdf, docx, txt, image
     file_size = Column(BigInteger)
     storage_path = Column(Text)
-    metadata = Column(JSON)
+    meta_data = Column(JSON)
     indexed_at = Column(DateTime)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
@@ -110,7 +163,7 @@ class DocumentChunk(Base):
     content = Column(Text)
     embedding_id = Column(String(255))  # Reference to Milvus
     embedding_models = Column(JSON)  # List of models used for this chunk
-    metadata = Column(JSON)
+    meta_data = Column(JSON)
     created_at = Column(DateTime, default=func.now())
 
 
@@ -195,7 +248,7 @@ class Source(Base):
     title = Column(String(255))
     snippet = Column(Text)
     relevance_score = Column(Float)
-    metadata = Column(JSON)
+    meta_data = Column(JSON)
     created_at = Column(DateTime, default=func.now())
 
 

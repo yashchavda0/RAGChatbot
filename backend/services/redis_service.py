@@ -2,12 +2,18 @@
 Redis cache service for caching embeddings, search results, and session data.
 """
 import json
+import hashlib
 from typing import Any, Optional, List
 import redis.asyncio as redis
 from config import settings
 from config.logging_config import get_logger
 
 logger = get_logger(__name__)
+
+
+def _stable_hash(text: str) -> str:
+    """Generate a deterministic hash for cache keys."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
 
 class RedisService:
@@ -164,7 +170,7 @@ class RedisService:
         ttl: Optional[int] = None,
     ) -> bool:
         """Cache LLM response."""
-        key = f"llm:{hash(prompt)}"
+        key = f"llm:{_stable_hash(prompt)}"
         return await self.set(key, response, ttl=ttl or 3600)
 
     async def get_llm_response(

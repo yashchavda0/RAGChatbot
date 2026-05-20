@@ -1,14 +1,16 @@
-"""
-Pydantic schemas for chat-related API models.
-"""
+"""Chat and document schemas."""
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+from typing import List, Dict, Any, Optional
 
+
+# =============================================================================
+# CHAT SCHEMAS
+# =============================================================================
 
 class ChatMessage(BaseModel):
     """User chat message."""
-    message: str = Field(..., description="User's message")
-    session_id: Optional[str] = Field("default", description="Session identifier")
+    message: str = Field(..., max_length=10000, description="User's message")
+    session_id: str = Field(default="default", description="Session identifier")
 
 
 class ChatResponse(BaseModel):
@@ -19,12 +21,27 @@ class ChatResponse(BaseModel):
     agent_executions: List[Dict[str, Any]] = Field(default_factory=list, description="Agent execution info")
 
 
+# =============================================================================
+# DOCUMENT SCHEMAS
+# =============================================================================
+
 class DocumentUploadResponse(BaseModel):
     """Response after document upload."""
-    message: str = Field(..., description="Status message")
-    document_id: str = Field(..., description="Document identifier")
-    chunks_created: int = Field(..., description="Number of chunks created")
-    embedding_models: List[str] = Field(default_factory=list, description="Models used")
+    message: str
+    document_id: str
+    chunks_created: int
+    embedding_models: List[str] = Field(default_factory=list)
+
+
+class DocumentInfo(BaseModel):
+    """Information about a single document."""
+    document_id: str
+    filename: Optional[str] = None
+    file_type: Optional[str] = None
+    file_size: Optional[int] = None
+    indexed_at: Optional[str] = None
+    created_at: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class DocumentListResponse(BaseModel):
@@ -32,33 +49,13 @@ class DocumentListResponse(BaseModel):
     documents: List[Dict[str, Any]] = Field(default_factory=list)
 
 
+# =============================================================================
+# AGENT SCHEMAS
+# =============================================================================
+
 class AgentStatus(BaseModel):
     """Agent status information."""
     agent_id: str
     agent_name: str
     status: str
     current_request: Optional[str] = None
-
-
-class WorkflowExecution(BaseModel):
-    """Workflow execution info."""
-    execution_id: str
-    status: str
-    current_node: Optional[str] = None
-    completed_nodes: List[str] = Field(default_factory=list)
-
-
-class StreamChatMessage(BaseModel):
-    """Message for streaming chat."""
-    message: str
-    session_id: Optional[str] = "default"
-    stream: bool = False
-
-
-class StreamChatChunk(BaseModel):
-    """Chunk of streamed response."""
-    type: str  # "agent_update", "progress", "chunk", "done", "error"
-    content: Optional[str] = None
-    agent: Optional[Dict[str, Any]] = None
-    progress: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None

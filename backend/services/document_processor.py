@@ -6,7 +6,7 @@ import io
 import uuid
 from typing import Dict, Any, List, Optional, Tuple
 from pathlib import Path
-import PyPDF2
+import pypdf
 from docx import Document as DocxDocument
 from config import settings
 from config.logging_config import get_logger
@@ -89,7 +89,7 @@ class DocumentProcessorService:
 
         try:
             pdf_file = io.BytesIO(content)
-            pdf_reader = PyPDF2.PdfReader(pdf_file)
+            pdf_reader = pypdf.PdfReader(pdf_file)
 
             # Get metadata
             if pdf_reader.metadata:
@@ -116,7 +116,7 @@ class DocumentProcessorService:
 
             # Extract images if requested
             if extract_images:
-                # Note: PyPDF2 has limited image extraction
+                # Note: pypdf has limited image extraction
                 # For production, consider using pdf2image or PyMuPDF
                 pass
 

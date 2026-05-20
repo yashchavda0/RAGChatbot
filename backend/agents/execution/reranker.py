@@ -1,7 +1,7 @@
 """
 Reranker Agent - Execution
 
-Reranks and merges results from multiple sources using BAAI reranker.
+Reranks and merges results from multiple sources using Gemini.
 Combines document search results, web search results, and OCR outputs into a single
 ranked list for optimal relevance.
 """
@@ -16,8 +16,8 @@ logger = get_logger(__name__)
 @register_agent(
     agent_id="reranker",
     name="Reranker",
-    capabilities=["reranking", "ranking", "merging", "baai"],
-    description="Reranks and merges results using BAAI reranker"
+    capabilities=["reranking", "ranking", "merging"],
+    description="Reranks and merges results using Gemini"
 )
 class RerankerAgent(BaseAgent):
     """Rerank and merge results from all sources."""
@@ -38,9 +38,9 @@ class RerankerAgent(BaseAgent):
         )
 
         try:
-            from services.baai_reranker_service import BAARerankerService
+            from services.baai_reranker_service import get_reranker_service
 
-            reranker_service = BAARerankerService()
+            reranker_service = get_reranker_service()
 
             # Combine all results
             all_results = []

@@ -238,3 +238,6 @@ rag-chatbot/
     ├── public/                 # Static assets
     └── src/                    # Source code
 ```
+
+
+use the frontend architect agent and plan the frontend as there are only 3 pages currently in the system. but there should be a landing page, signingup and login page, once loggined there will be the list of chatbots they have create with the status of live or not, in the chatbot, there will be the sidebar or list of features/ options to user like knowledge base of that chatbot, list of q/a with adding and editing option, customization optiosn, settings options, a test running pages, embeddings pages where user will get the script of that chatbot, also user can check how the widget will look like and also test that, conversation history. apart from this whole there should be a ananlytis pages for ananlysis of that cahtbots when the user click on that chatbot from the list of the chatbots. first thing is the analytics pages.

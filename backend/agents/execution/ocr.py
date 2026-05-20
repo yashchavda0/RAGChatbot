@@ -1,7 +1,7 @@
 """
 OCR Agent - Execution
 
-Processes images using PaddleOCR to extract text from scanned documents,
+Processes images using Azure Document Intelligence to extract text from scanned documents,
 images, and other visual content.
 """
 import re
@@ -11,20 +11,14 @@ from typing import Dict, Any, List, Optional
 from agents.base.base_agent import BaseAgent, register_agent
 from graph.state import RAGState, update_agent_execution
 from config.logging_config import get_logger
-from services.paddle_ocr_service import PaddleOCRService
 
 logger = get_logger(__name__)
 
-# Singleton OCR service
-_ocr_service: Optional[PaddleOCRService] = None
 
-
-def get_ocr_service() -> PaddleOCRService:
-    """Get or create the OCR service instance."""
-    global _ocr_service
-    if _ocr_service is None:
-        _ocr_service = PaddleOCRService()
-    return _ocr_service
+def get_ocr_service():
+    """Get the unified OCR service (lazy-loads provider based on config)."""
+    from services.ocr_service import get_ocr_service as _get
+    return _get()
 
 
 def extract_image_references(text: str) -> List[str]:
@@ -54,14 +48,14 @@ def extract_image_references(text: str) -> List[str]:
 @register_agent(
     agent_id="ocr",
     name="OCR Agent",
-    capabilities=["ocr", "paddleocr", "image_processing", "text_extraction"],
-    description="Extracts text from images using PaddleOCR"
+    capabilities=["ocr", "azure_ocr", "image_processing", "text_extraction"],
+    description="Extracts text from images using Azure Document Intelligence"
 )
 class OCRAgent(BaseAgent):
-    """Process images using PaddleOCR."""
+    """Process images using Azure Document Intelligence."""
 
     async def execute(self, state: RAGState) -> RAGState:
-        """Process images through PaddleOCR."""
+        """Process images through Azure OCR."""
         logger.info("Processing OCR...")
 
         state = update_agent_execution(
@@ -166,7 +160,7 @@ class OCRAgent(BaseAgent):
 
     async def _process_single_image(
         self,
-        ocr_service: PaddleOCRService,
+        ocr_service,
         img_info: Dict[str, Any],
     ) -> Optional[Dict[str, Any]]:
         """Process a single image and return results."""

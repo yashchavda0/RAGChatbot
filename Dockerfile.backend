@@ -1,28 +1,87 @@
-FROM python:3.11-slim
+# ============================================
+# Stage 1: Base - Python + minimal system deps
+# ============================================
+FROM python:3.11-slim-bookworm AS base
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
-# Copy requirements first for better caching
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+# ============================================
+# Stage 2: Prod deps - cached by requirements.txt hash
+# ============================================
+FROM base AS prod-deps
+
 COPY backend/requirements.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv venv /opt/venv && \
+    uv pip install -r requirements.txt --python /opt/venv/bin/python
 
-# Copy backend code
-COPY backend/ .
+# ============================================
+# Stage 3: Dev deps - extends prod deps with dev packages
+# ============================================
+FROM prod-deps AS dev-deps
 
-# Create data directory
-RUN mkdir -p /app/data
+COPY backend/requirements-dev.txt .
 
-# Expose port
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install -r requirements-dev.txt --python /opt/venv/bin/python
+
+# ============================================
+# Stage 4: Development - hot-reload, dev deps, mounted source
+# ============================================
+FROM dev-deps AS development
+
+COPY --from=dev-deps /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+COPY backend/docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+
+RUN mkdir -p /app/data /app/logs
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
 EXPOSE 8000
 
-# Run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# ============================================
+# Stage 5: Production - slim runtime
+# ============================================
+FROM base AS production
+
+COPY --from=prod-deps /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+COPY backend/ .
+RUN chmod +x /app/docker-entrypoint.sh
+
+RUN mkdir -p /app/data /app/logs && \
+    useradd --create-home --shell /bin/bash appuser && \
+    chown -R appuser:appuser /app
+USER appuser
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=15s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    EMBEDDING_MODELS='["gemini-text-embedding-004"]' \
+    DEFAULT_EMBEDDING_MODEL=gemini-text-embedding-004
+
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

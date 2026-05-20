@@ -1,9 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useRef } from 'react';
-import { Upload, FileText, X, Check, AlertCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Upload, FileText, X, Check, AlertCircle, File, Image, FileCode } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface UploadProgress {
@@ -16,6 +14,33 @@ interface UploadProgress {
 interface DocumentUploadProps {
   onUploadComplete?: (documentId: string) => void;
 }
+
+// Get file icon based on extension
+const getFileIcon = (filename: string) => {
+  const ext = filename.split('.').pop()?.toLowerCase();
+  switch (ext) {
+    case 'pdf':
+    case 'doc':
+    case 'docx':
+    case 'txt':
+      return <FileText className="w-4 h-4" />;
+    case 'png':
+    case 'jpg':
+    case 'jpeg':
+    case 'gif':
+    case 'webp':
+      return <Image className="w-4 h-4" />;
+    case 'js':
+    case 'ts':
+    case 'jsx':
+    case 'tsx':
+    case 'py':
+    case 'java':
+      return <FileCode className="w-4 h-4" />;
+    default:
+      return <File className="w-4 h-4" />;
+  }
+};
 
 export function DocumentUpload({ onUploadComplete }: DocumentUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
@@ -35,7 +60,6 @@ export function DocumentUpload({ onUploadComplete }: DocumentUploadProps) {
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-
     const files = Array.from(e.dataTransfer.files);
     files.forEach(uploadFile);
   }, []);
@@ -46,7 +70,6 @@ export function DocumentUpload({ onUploadComplete }: DocumentUploadProps) {
   };
 
   const uploadFile = async (file: File) => {
-    const uploadId = crypto.randomUUID();
     const uploadProgress: UploadProgress = {
       filename: file.name,
       progress: 0,
@@ -58,7 +81,6 @@ export function DocumentUpload({ onUploadComplete }: DocumentUploadProps) {
     formData.append('file', file);
 
     try {
-      // Upload to backend
       const response = await fetch('http://localhost:8000/documents/upload', {
         method: 'POST',
         body: formData,
@@ -78,7 +100,6 @@ export function DocumentUpload({ onUploadComplete }: DocumentUploadProps) {
         )
       );
 
-      // Simulate indexing progress
       setTimeout(() => {
         setUploads((prev) =>
           prev.map((u) =>
@@ -99,7 +120,6 @@ export function DocumentUpload({ onUploadComplete }: DocumentUploadProps) {
         );
         onUploadComplete?.(result.document_id);
       }, 1500);
-
     } catch (error) {
       setUploads((prev) =>
         prev.map((u) =>
@@ -115,44 +135,66 @@ export function DocumentUpload({ onUploadComplete }: DocumentUploadProps) {
     setUploads((prev) => prev.filter((u) => u.filename !== filename));
   };
 
-  const getStatusIcon = (status: UploadProgress['status']) => {
+  const getStatusConfig = (status: UploadProgress['status']) => {
     switch (status) {
       case 'complete':
-        return <Check className="w-4 h-4 text-green-500" />;
+        return {
+          color: 'success',
+          icon: <Check className="w-3.5 h-3.5" />,
+          text: 'Complete',
+        };
       case 'error':
-        return <AlertCircle className="w-4 h-4 text-red-500" />;
+        return {
+          color: 'destructive',
+          icon: <AlertCircle className="w-3.5 h-3.5" />,
+          text: 'Error',
+        };
       default:
-        return <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />;
+        return {
+          color: 'primary',
+          icon: null,
+          text: 'Processing...',
+        };
     }
   };
 
   return (
-    <div className="space-y-4">
-      <Card
+    <div className="space-y-3">
+      {/* Drop Zone */}
+      <div
         className={cn(
-          'border-2 border-dashed transition-colors cursor-pointer',
+          'relative overflow-hidden rounded-xl border-2 border-dashed transition-all duration-300 cursor-pointer',
           isDragging
-            ? 'border-primary bg-primary/5'
-            : 'border-muted-foreground/25 hover:border-primary/50'
+            ? 'border-primary bg-primary/5 scale-[1.01] shadow-sm'
+            : 'border-border hover:border-primary/40 bg-muted/30 hover:bg-muted/50'
         )}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
       >
-        <div className="flex flex-col items-center justify-center p-12 text-center">
-          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-            <Upload className="w-8 h-8 text-primary" />
+        <div className="flex flex-col items-center justify-center p-6 text-center">
+          <div
+            className={cn(
+              'w-12 h-12 rounded-xl flex items-center justify-center mb-3 transition-all duration-300',
+              isDragging
+                ? 'bg-primary text-primary-foreground scale-110'
+                : 'bg-primary/10 text-primary'
+            )}
+          >
+            <Upload className={cn('w-5 h-5', isDragging && 'animate-bounce-gentle')} />
           </div>
-          <h3 className="text-lg font-semibold mb-2">Upload Documents</h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            Drag and drop files here, or click to browse
+          <p className="text-sm font-medium mb-1">
+            {isDragging ? 'Drop files here' : 'Upload Documents'}
           </p>
           <p className="text-xs text-muted-foreground">
-            Supports: PDF, DOCX, TXT, PNG, JPG
+            Drag & drop or click to browse
+          </p>
+          <p className="text-[10px] text-muted-foreground/60 mt-2">
+            PDF, DOC, DOCX, TXT, PNG, JPG
           </p>
         </div>
-      </Card>
+      </div>
 
       <input
         ref={fileInputRef}
@@ -163,51 +205,94 @@ export function DocumentUpload({ onUploadComplete }: DocumentUploadProps) {
         accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg"
       />
 
+      {/* Upload Progress List */}
       {uploads.length > 0 && (
         <div className="space-y-2">
-          <h4 className="text-sm font-medium">Uploads</h4>
-          {uploads.map((upload) => (
-            <Card key={upload.filename} className="p-3">
-              <div className="flex items-center gap-3">
-                <FileText className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{upload.filename}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+          {uploads.map((upload) => {
+            const config = getStatusConfig(upload.status);
+
+            return (
+              <div
+                key={upload.filename}
+                className="card-flat p-3 animate-slide-up"
+              >
+                <div className="flex items-center gap-3">
+                  {/* File Icon */}
+                  <div
+                    className={cn(
+                      'flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center',
+                      upload.status === 'error'
+                        ? 'bg-destructive/10 text-destructive'
+                        : 'bg-primary/10 text-primary'
+                    )}
+                  >
+                    {getFileIcon(upload.filename)}
+                  </div>
+
+                  {/* File Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <p className="text-sm font-medium truncate">
+                        {upload.filename}
+                      </p>
+                      {/* Status Icon */}
                       <div
                         className={cn(
-                          'h-full transition-all duration-300',
-                          upload.status === 'error'
-                            ? 'bg-red-500'
-                            : upload.status === 'complete'
-                            ? 'bg-green-500'
-                            : 'bg-primary'
+                          'flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center',
+                          config.color === 'success' && 'bg-success/10 text-success',
+                          config.color === 'destructive' && 'bg-destructive/10 text-destructive',
+                          config.color === 'primary' && 'bg-primary/10'
                         )}
-                        style={{ width: `${upload.progress}%` }}
-                      />
+                      >
+                        {config.icon}
+                        {!config.icon &&
+                          upload.status !== 'complete' &&
+                          upload.status !== 'error' && (
+                            <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                          )}
+                      </div>
                     </div>
-                    <span className="text-xs text-muted-foreground w-12 text-right">
-                      {upload.progress}%
-                    </span>
+
+                    {/* Progress Bar */}
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className={cn(
+                            'h-full transition-all duration-300 rounded-full',
+                            upload.status === 'error'
+                              ? 'bg-destructive'
+                              : 'bg-primary'
+                          )}
+                          style={{ width: `${upload.progress}%` }}
+                        />
+                      </div>
+                      <span className="text-[10px] text-muted-foreground w-8 text-right tabular-nums">
+                        {upload.progress}%
+                      </span>
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1 capitalize">
-                    {upload.status}
-                    {upload.error && `: ${upload.error}`}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {getStatusIcon(upload.status)}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeUpload(upload.filename)}
+
+                  {/* Remove Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeUpload(upload.filename);
+                    }}
+                    className="flex-shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                   >
                     <X className="w-4 h-4" />
-                  </Button>
+                  </button>
                 </div>
+
+                {/* Error Message */}
+                {upload.error && (
+                  <p className="text-xs text-destructive mt-2 pl-12">
+                    {upload.error}
+                  </p>
+                )}
               </div>
-            </Card>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

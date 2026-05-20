@@ -8,7 +8,6 @@ Importing agents module triggers registration of all agents.
 import uuid
 from typing import Optional
 from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from config import settings
 from config.logging_config import get_logger
 from graph.state import RAGState, create_initial_state
@@ -123,22 +122,8 @@ def build_rag_graph():
         },
     )
 
-    # ========================================================================
-    # COMPILE WITH CHECKPOINTER
-    # ========================================================================
-
-    # Create checkpointer for conversation memory
-    checkpointer = None
-
-    try:
-        if settings.postgres_url:
-            checkpointer = AsyncPostgresSaver.from_conn_string(settings.postgres_url)
-            logger.info("PostgreSQL checkpointer configured for LangGraph")
-    except Exception as e:
-        logger.warning(f"Could not configure PostgreSQL checkpointer: {e}")
-
-    # Compile the graph
-    app = workflow.compile(checkpointer=checkpointer)
+    # Compile the graph (no checkpointer for simplicity)
+    app = workflow.compile()
 
     logger.info("RAG LangGraph compiled successfully")
 
@@ -176,6 +161,9 @@ def get_rag_graph():
 async def process_query(
     query: str,
     session_id: str = "default",
+    chatbot_id: str = "default",
+    system_prompt: str = "You are a helpful assistant.",
+    has_knowledge_base: bool = True,
     config: Optional[dict] = None,
 ) -> RAGState:
     """
@@ -184,12 +172,15 @@ async def process_query(
     Args:
         query: User's query string
         session_id: Session identifier for conversation memory
+        chatbot_id: Chatbot ID for knowledge base filtering
+        system_prompt: System prompt for the LLM
+        has_knowledge_base: Whether chatbot has indexed documents
         config: Optional configuration for graph execution
 
     Returns:
         Final state after graph execution.
     """
-    logger.info(f"Processing query for session {session_id}: {query[:50]}...")
+    logger.info(f"Processing query for chatbot {chatbot_id}, session {session_id}: {query[:50]}...")
 
     # Generate request ID
     request_id = str(uuid.uuid4())
@@ -199,6 +190,9 @@ async def process_query(
         query=query,
         session_id=session_id,
         request_id=request_id,
+        chatbot_id=chatbot_id,
+        system_prompt=system_prompt,
+        has_knowledge_base=has_knowledge_base,
     )
 
     # Get the graph
@@ -229,6 +223,9 @@ async def process_query(
 async def stream_query(
     query: str,
     session_id: str = "default",
+    chatbot_id: str = "default",
+    system_prompt: str = "You are a helpful assistant.",
+    has_knowledge_base: bool = True,
     config: Optional[dict] = None,
 ):
     """
@@ -238,12 +235,15 @@ async def stream_query(
     Args:
         query: User's query string
         session_id: Session identifier for conversation memory
+        chatbot_id: Chatbot ID for knowledge base filtering
+        system_prompt: System prompt for the LLM
+        has_knowledge_base: Whether chatbot has indexed documents
         config: Optional configuration for graph execution
 
     Yields:
         State updates during graph execution, with final state marked.
     """
-    logger.info(f"Streaming query for session {session_id}: {query[:50]}...")
+    logger.info(f"Streaming query for chatbot {chatbot_id}, session {session_id}: {query[:50]}...")
 
     # Generate request ID
     request_id = str(uuid.uuid4())
@@ -253,6 +253,9 @@ async def stream_query(
         query=query,
         session_id=session_id,
         request_id=request_id,
+        chatbot_id=chatbot_id,
+        system_prompt=system_prompt,
+        has_knowledge_base=has_knowledge_base,
     )
 
     # Get the graph

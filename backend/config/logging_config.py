@@ -129,7 +129,6 @@ def setup_logging() -> None:
     # Suppress noisy loggers
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)
-    logging.getLogger("websockets").setLevel(logging.WARNING)
     logging.getLogger("pymilvus").setLevel(logging.WARNING)
 
 

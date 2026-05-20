@@ -45,7 +45,7 @@ class SessionManagerService:
                 db_session = DBSession(
                     session_id=session_id,
                     user_id=user_id,
-                    metadata=metadata or {},
+                    meta_data=metadata or {},
                 )
 
                 db.add(db_session)
@@ -81,7 +81,7 @@ class SessionManagerService:
                         "user_id": session.user_id,
                         "created_at": session.created_at.isoformat(),
                         "last_activity": session.last_activity.isoformat(),
-                        "metadata": session.metadata,
+                        "metadata": session.meta_data,
                         "is_active": session.is_active,
                     }
 
@@ -153,7 +153,7 @@ class SessionManagerService:
                     content=content,
                     sources=sources,
                     agent_executions=agent_executions,
-                    metadata=metadata or {},
+                    meta_data=metadata or {},
                 )
 
                 db.add(message)

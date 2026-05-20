@@ -55,20 +55,30 @@ def is_valid_url(url: str) -> bool:
             return False
         if not parsed.netloc:
             return False
-        # Block local/private addresses for security
+        # Block local/private addresses for security (RFC 1918 + special-use)
+        import ipaddress
+        import socket
         hostname = parsed.hostname or ""
-        blocked_patterns = [
+        blocked_hostnames = [
             "localhost",
-            "127.",
-            "10.",
-            "172.16.",
-            "192.168.",
             "0.0.0.0",
             "::1",
         ]
-        for pattern in blocked_patterns:
-            if hostname.startswith(pattern) or hostname == pattern:
+        for pattern in blocked_hostnames:
+            if hostname == pattern:
                 return False
+        # Resolve hostname and check IP ranges
+        try:
+            resolved_ips = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+            for _, _, _, _, addr in resolved_ips:
+                ip = ipaddress.ip_address(addr[0])
+                if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                    return False
+                # Block cloud metadata endpoint
+                if str(ip) == "169.254.169.254":
+                    return False
+        except (socket.gaierror, ValueError):
+            return False
         return True
     except Exception:
         return False

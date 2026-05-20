@@ -15,14 +15,6 @@ class IntentType:
     COMPLEX = "complex"
 
 
-class AgentExecutionStatus:
-    """Agent execution status types."""
-    PENDING = "pending"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
-
-
 class RAGState(TypedDict):
     """
     Main state for the RAG LangGraph.
@@ -32,6 +24,11 @@ class RAGState(TypedDict):
     # Core query and messages
     messages: Annotated[List[Dict[str, Any]], add_messages]  # LangGraph message annotation
     query: str  # Original user query
+
+    # Chatbot context (multi-tenant)
+    chatbot_id: str  # Chatbot ID for knowledge base filtering
+    system_prompt: str  # Custom system prompt for this chatbot
+    has_knowledge_base: bool  # Whether chatbot has indexed documents
 
     # Intent classification
     intent: str  # Classified intent (DOCUMENT_SEARCH, WEB_SEARCH, OCR, URL_PROCESS, COMPLEX)
@@ -60,6 +57,7 @@ class RAGState(TypedDict):
     # Final response
     final_response: Optional[str]  # Final synthesized response
     response_sources: List[Dict[str, Any]]  # Sources cited in response
+    from_web_search_only: bool  # True if response is from web search only (no KB)
 
     # Agent execution tracking
     agent_executions: List[Dict[str, Any]]  # Track all agent executions
@@ -75,31 +73,6 @@ class RAGState(TypedDict):
     retry_count: int  # Number of retries attempted
 
 
-class DocumentSearchState(TypedDict):
-    """State for document search operations."""
-    query: str
-    embedding_model: str
-    top_k: int
-    filters: Dict[str, Any]
-    results: List[Dict[str, Any]]
-
-
-class WebSearchState(TypedDict):
-    """State for web search operations."""
-    query: str
-    max_results: int
-    search_depth: str
-    results: List[Dict[str, Any]]
-
-
-class OCRState(TypedDict):
-    """State for OCR operations."""
-    image_data: bytes
-    file_name: str
-    extracted_text: str
-    confidence: float
-
-
 class AgentExecution(TypedDict):
     """Record of an agent execution."""
     agent_id: str
@@ -113,43 +86,21 @@ class AgentExecution(TypedDict):
     error_message: Optional[str]
 
 
-class PlanNode(TypedDict):
-    """A node in the execution plan."""
-    node_id: str
-    agent_id: str
-    dependencies: List[str]
-    input_mapping: Dict[str, Any]
-    output_mapping: Dict[str, Any]
-    condition: Optional[Dict[str, Any]]
-
-
-class PlanEdge(TypedDict):
-    """An edge in the execution plan."""
-    edge_id: str
-    source_node: str
-    target_node: str
-    condition: Optional[Dict[str, Any]]
-
-
-class ExecutionPlan(TypedDict):
-    """Complete execution plan for complex queries."""
-    plan_id: str
-    nodes: List[PlanNode]
-    edges: List[PlanEdge]
-    entry_node: str
-    exit_nodes: List[str]
-    metadata: Dict[str, Any]
-
-
 def create_initial_state(
     query: str,
     session_id: str,
     request_id: str,
+    chatbot_id: str = "default",
+    system_prompt: str = "You are a helpful assistant.",
+    has_knowledge_base: bool = True,
 ) -> RAGState:
     """Create initial state for a new query."""
     return {
         "messages": [],
         "query": query,
+        "chatbot_id": chatbot_id,
+        "system_prompt": system_prompt,
+        "has_knowledge_base": has_knowledge_base,
         "intent": "",
         "intent_confidence": 0.0,
         "plan": None,
@@ -162,6 +113,7 @@ def create_initial_state(
         "reranked_results": [],
         "final_response": None,
         "response_sources": [],
+        "from_web_search_only": False,
         "agent_executions": [],
         "current_agent": None,
         "session_id": session_id,

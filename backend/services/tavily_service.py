@@ -136,3 +136,15 @@ class TavilyService:
         except Exception as e:
             logger.error(f"Error in Tavily search with answer: {e}")
             return {"answer": "", "results": []}
+
+
+# Global singleton
+_tavily_service: Optional["TavilyService"] = None
+
+
+def get_tavily_service() -> TavilyService:
+    """Get or create the global Tavily service instance."""
+    global _tavily_service
+    if _tavily_service is None:
+        _tavily_service = TavilyService()
+    return _tavily_service

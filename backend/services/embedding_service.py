@@ -1,254 +1,114 @@
 """
-Multi-model embedding service using sentence-transformers.
-Supports bge-small, bge-large, and stella models simultaneously.
+Embedding service using Google Gemini's text-embedding-004 API.
+Zero local memory footprint — all computation happens on Google's servers.
 """
 import asyncio
 from typing import List, Dict, Any, Optional
-from sentence_transformers import SentenceTransformer
-import torch
+from google import generativeai as genai
 from config import settings
 from config.logging_config import get_logger
 
 logger = get_logger(__name__)
 
+GEMINI_EMBEDDING_MODEL = "models/text-embedding-004"
+GEMINI_EMBEDDING_DIM = 768
+# Task types for better embedding quality
+TASK_QUERY = "RETRIEVAL_QUERY"
+TASK_DOCUMENT = "RETRIEVAL_DOCUMENT"
+
 
 class EmbeddingService:
-    """
-    Service for generating text embeddings using multiple models.
-    Each document chunk is embedded with ALL configured models.
-    """
+    """Service for generating text embeddings using Gemini API."""
 
     def __init__(self):
-        """Initialize the embedding service with all models."""
-        self.models: Dict[str, SentenceTransformer] = {}
-        self.dimensions: Dict[str, int] = {}
-        self.device = settings.embedding_device
+        genai.configure(api_key=settings.gemini_api_key)
+        self.model_name = f"gemini-{GEMINI_EMBEDDING_MODEL}"
+        self.dimension = GEMINI_EMBEDDING_DIM
+        self._batch_size = 100  # Gemini supports up to 100 per request
+        logger.info(f"Embedding service initialized (model: {GEMINI_EMBEDDING_MODEL}, dim: {self.dimension})")
 
-        # Load all configured models
-        for model_name in settings.embedding_models:
-            self._load_model(model_name)
-
-        logger.info(
-            f"Embedding service initialized with {len(self.models)} models: "
-            f"{list(self.models.keys())}"
-        )
-
-    def _load_model(self, model_name: str) -> None:
-        """Load a single embedding model."""
-        try:
-            logger.info(f"Loading embedding model: {model_name}")
-
-            model = SentenceTransformer(
-                model_name,
-                device=self.device,
-            )
-
-            self.models[model_name] = model
-            self.dimensions[model_name] = model.get_sentence_embedding_dimension()
-
-            logger.info(
-                f"Model {model_name} loaded (dimension: {self.dimensions[model_name]})"
-            )
-
-        except Exception as e:
-            logger.error(f"Error loading model {model_name}: {e}")
-            raise
-
-    def get_dimension(self, model_name: str) -> int:
-        """Get the embedding dimension for a specific model."""
-        return self.dimensions.get(model_name, 1024)
+    def get_dimension(self, model_name: Optional[str] = None) -> int:
+        return self.dimension
 
     def get_all_dimensions(self) -> Dict[str, int]:
-        """Get dimensions for all loaded models."""
-        return self.dimensions.copy()
+        return {self.model_name: self.dimension}
+
+    async def _embed_batch(
+        self,
+        texts: List[str],
+        task_type: str = TASK_DOCUMENT,
+    ) -> List[List[float]]:
+        """Embed a batch of texts via Gemini API."""
+        loop = asyncio.get_event_loop()
+
+        def _call():
+            result = genai.embed_content(
+                model=GEMINI_EMBEDDING_MODEL,
+                content=texts,
+                task_type=task_type,
+            )
+            return result["embedding"]
+
+        return await loop.run_in_executor(None, _call)
 
     async def embed_text(
         self,
         text: str,
         model_name: Optional[str] = None,
     ) -> List[float]:
-        """
-        Generate embedding for a single text using specified model.
-
-        Args:
-            text: Text to embed
-            model_name: Model to use (defaults to first configured model)
-
-        Returns:
-            Embedding vector as list of floats
-        """
-        if model_name is None:
-            model_name = settings.default_embedding_model
-
-        if model_name not in self.models:
-            raise ValueError(f"Model {model_name} not loaded")
-
-        try:
-            model = self.models[model_name]
-
-            # Generate embedding
-            embedding = model.encode(
-                text,
-                convert_to_numpy=True,
-                normalize_embeddings=True,
-            )
-
-            return embedding.tolist()
-
-        except Exception as e:
-            logger.error(f"Error generating embedding with {model_name}: {e}")
-            raise
+        results = await self._embed_batch([text], TASK_DOCUMENT)
+        return results[0]
 
     async def embed_query(
         self,
         query: str,
         model_name: Optional[str] = None,
     ) -> List[float]:
-        """
-        Generate embedding for a query (optimized for short text).
-
-        Args:
-            query: Query text to embed
-            model_name: Model to use
-
-        Returns:
-            Embedding vector
-        """
-        return await self.embed_text(query, model_name)
+        results = await self._embed_batch([query], TASK_QUERY)
+        return results[0]
 
     async def embed_documents(
         self,
         texts: List[str],
         model_name: Optional[str] = None,
-        batch_size: int = 32,
+        batch_size: int = 100,
     ) -> List[List[float]]:
-        """
-        Generate embeddings for multiple documents.
-
-        Args:
-            texts: List of texts to embed
-            model_name: Model to use
-            batch_size: Batch size for processing
-
-        Returns:
-            List of embedding vectors
-        """
-        if model_name is None:
-            model_name = settings.default_embedding_model
-
-        if model_name not in self.models:
-            raise ValueError(f"Model {model_name} not loaded")
-
-        try:
-            model = self.models[model_name]
-
-            loop = asyncio.get_event_loop()
-
-            def _encode():
-                return model.encode(
-                    texts,
-                    batch_size=batch_size,
-                    show_progress_bar=False,
-                    convert_to_numpy=True,
-                    normalize_embeddings=True,
-                )
-
-            # Run CPU-bound operation in thread pool
-            embeddings = await loop.run_in_executor(None, _encode)
-
-            return embeddings.tolist()
-
-        except Exception as e:
-            logger.error(f"Error generating document embeddings: {e}")
-            raise
+        all_embeddings = []
+        for i in range(0, len(texts), self._batch_size):
+            batch = texts[i : i + self._batch_size]
+            embeddings = await self._embed_batch(batch, TASK_DOCUMENT)
+            all_embeddings.extend(embeddings)
+            logger.info(f"Embedded batch {i // self._batch_size + 1}: {len(batch)} texts")
+        return all_embeddings
 
     async def embed_with_all_models(
         self,
         text: str,
     ) -> Dict[str, List[float]]:
-        """
-        Generate embeddings for text using ALL configured models.
-
-        Args:
-            text: Text to embed
-
-        Returns:
-            Dictionary mapping model names to their embeddings
-        """
-        results = {}
-
-        # Generate embeddings with all models in parallel
-        tasks = []
-        model_names = []
-
-        for model_name in settings.embedding_models:
-            tasks.append(self.embed_text(text, model_name))
-            model_names.append(model_name)
-
-        embeddings = await asyncio.gather(*tasks)
-
-        for model_name, embedding in zip(model_names, embeddings):
-            results[model_name] = embedding
-
-        return results
+        embedding = await self.embed_text(text)
+        return {self.model_name: embedding}
 
     async def embed_documents_with_all_models(
         self,
         texts: List[str],
     ) -> Dict[str, List[List[float]]]:
-        """
-        Generate embeddings for documents using ALL configured models.
-
-        Args:
-            texts: List of texts to embed
-
-        Returns:
-            Dictionary mapping model names to lists of embeddings
-        """
-        results = {}
-
-        # Process each model
-        for model_name in settings.embedding_models:
-            embeddings = await self.embed_documents(texts, model_name)
-            results[model_name] = embeddings
-
-            logger.info(
-                f"Generated {len(embeddings)} embeddings with {model_name}"
-            )
-
-        return results
+        embeddings = await self.embed_documents(texts)
+        return {self.model_name: embeddings}
 
     def pad_embedding(self, embedding: List[float], target_dim: int) -> List[float]:
-        """
-        Pad or truncate embedding to target dimension.
-
-        Useful for storing different-sized embeddings in the same vector space.
-
-        Args:
-            embedding: Original embedding
-            target_dim: Target dimension
-
-        Returns:
-            Padded or truncated embedding
-        """
         current_dim = len(embedding)
-
         if current_dim == target_dim:
             return embedding
         elif current_dim < target_dim:
-            # Pad with zeros
             return embedding + [0.0] * (target_dim - current_dim)
         else:
-            # Truncate
             return embedding[:target_dim]
 
 
-# Global embedding service instance
 _embedding_service: Optional[EmbeddingService] = None
 
 
 def get_embedding_service() -> EmbeddingService:
-    """Get or create the global embedding service instance."""
     global _embedding_service
     if _embedding_service is None:
         _embedding_service = EmbeddingService()

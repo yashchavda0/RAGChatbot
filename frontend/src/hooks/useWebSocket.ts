@@ -16,9 +16,12 @@ interface UseWebSocketOptions {
 interface UseWebSocketReturn {
   isConnected: boolean;
   sendMessage: (message: Record<string, unknown>) => void;
-  connect: (sessionId: string) => void;
+  connect: (chatbotId: string, sessionId: string) => void;
   disconnect: () => void;
 }
+
+const MAX_RECONNECT_ATTEMPTS = 5;
+const RECONNECT_BASE_DELAY_MS = 1000;
 
 export function useWebSocket({
   onMessage,
@@ -30,6 +33,9 @@ export function useWebSocket({
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
+  const reconnectAttemptsRef = useRef(0);
+  const sessionIdRef = useRef<string>('');
+  const chatbotIdRef = useRef<string>('');
 
   const handleMessage = useCallback((event: MessageEvent) => {
     try {
@@ -44,7 +50,7 @@ export function useWebSocket({
     }
   }, [onMessage, onAgentUpdate]);
 
-  const connect = useCallback((sessionId: string) => {
+  const connect = useCallback((chatbotId: string, sessionId: string) => {
     // Close existing connection if any
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.close();
@@ -55,11 +61,15 @@ export function useWebSocket({
       clearTimeout(reconnectTimeoutRef.current);
     }
 
+    sessionIdRef.current = sessionId;
+    chatbotIdRef.current = chatbotId;
+
     try {
-      const ws = new WebSocket(`${WS_URL}/chat/ws?session_id=${sessionId}`);
+      const ws = new WebSocket(`${WS_URL}/chat/${chatbotId}/ws?session_id=${sessionId}`);
       wsRef.current = ws;
 
       ws.onopen = () => {
+        reconnectAttemptsRef.current = 0;
         setIsConnected(true);
         onConnect?.();
       };
@@ -69,6 +79,21 @@ export function useWebSocket({
       ws.onclose = () => {
         setIsConnected(false);
         onDisconnect?.();
+
+        // Exponential backoff reconnection
+        if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+          const delay = RECONNECT_BASE_DELAY_MS * Math.pow(2, reconnectAttemptsRef.current);
+          reconnectAttemptsRef.current += 1;
+          console.warn(
+            `WebSocket disconnected. Reconnecting in ${delay}ms ` +
+            `(attempt ${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})`
+          );
+          reconnectTimeoutRef.current = setTimeout(() => {
+            connect(chatbotIdRef.current, sessionIdRef.current);
+          }, delay);
+        } else {
+          console.error('WebSocket max reconnection attempts reached.');
+        }
       };
 
       ws.onerror = (error) => {

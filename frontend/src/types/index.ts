@@ -9,7 +9,7 @@ export interface ChatMessage {
 }
 
 export interface Source {
-  type: 'document' | 'web' | 'ocr';
+  type: 'document' | 'web' | 'ocr' | 'url';
   filename?: string;
   chunk_id?: string;
   url?: string;
@@ -34,9 +34,9 @@ export interface Agent {
   agent_id: string;
   agent_name: string;
   agent_type: 'orchestration' | 'execution' | 'indexing';
-  description: string;
-  capabilities: string[];
-  is_active: boolean;
+  description?: string;
+  capabilities?: string[];
+  is_active?: boolean;
 }
 
 export interface AgentStatus extends Agent {
@@ -132,3 +132,13 @@ export interface WorkflowGraph {
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
 }
+
+// Re-export Conversation Types
+export type {
+  ConversationMessage,
+  ConversationSource,
+  ConversationUser,
+  Conversation,
+  ConversationFilters,
+  ConversationPagination,
+} from './conversation';

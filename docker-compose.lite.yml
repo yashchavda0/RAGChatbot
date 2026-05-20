@@ -8,7 +8,7 @@
 services:
   # PostgreSQL Database (Required for LangGraph checkpointer)
   postgres:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     container_name: rag-postgres-lite
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-raguser}

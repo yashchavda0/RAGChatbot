@@ -1,40 +1,75 @@
-# Build stage
-FROM node:20-alpine AS builder
+# ============================================
+# Stage 1: Dependencies (cached by package.json hash)
+# ============================================
+FROM node:18-alpine AS deps
 
 WORKDIR /app
 
-# Copy package files
-COPY package.json package-lock.json* ./
+COPY frontend/package.json frontend/package-lock.json* ./
 
-# Install dependencies
-RUN npm install
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
 
-# Copy source code
-COPY . .
-
-# Build the application
-RUN npm run build
-
-# Production stage
-FROM node:20-alpine AS runner
+# ============================================
+# Stage 2: Development (hot-reload)
+# ============================================
+FROM deps AS development
 
 WORKDIR /app
 
-ENV NODE_ENV=production
+# Only copy config files — source is mounted via docker-compose volumes
+COPY frontend/next.config.mjs frontend/tsconfig.json frontend/postcss.config.mjs frontend/tailwind.config.ts ./
+COPY frontend/package.json ./
 
-# Copy built application
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/next.config.mjs ./next.config.mjs
+ENV NEXT_TELEMETRY_DISABLED=1 \
+    NODE_ENV=development \
+    PORT=3000 \
+    HOSTNAME="0.0.0.0" \
+    WATCHPACK_POLLING=true
 
-# Expose port
 EXPOSE 3000
 
-# Set environment variables for container networking
-ENV NEXT_PUBLIC_API_URL=http://backend:8000
-ENV NEXT_PUBLIC_WS_URL=ws://backend:8000
+CMD ["npm", "run", "dev"]
 
-# Start the application
-CMD ["npm", "start"]
+# ============================================
+# Stage 3: Builder (Production)
+# ============================================
+FROM deps AS builder
+
+WORKDIR /app
+
+COPY frontend/ .
+
+ENV NEXT_TELEMETRY_DISABLED=1 \
+    NODE_ENV=production
+
+RUN --mount=type=cache,target=/app/.next/cache \
+    npm run build
+
+# ============================================
+# Stage 4: Runner (Production)
+# ============================================
+FROM node:18-alpine AS runner
+
+WORKDIR /app
+
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PORT=3000 \
+    HOSTNAME="0.0.0.0"
+
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+
+USER nextjs
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=10s --timeout=5s --start-period=20s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000 || exit 1
+
+CMD ["node", "server.js"]

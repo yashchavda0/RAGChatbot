@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { CheckCircle2, XCircle, Loader2, Clock } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { AgentExecution } from '@/types';
 import { formatExecutionTime, cn } from '@/lib/utils';
 
@@ -10,58 +10,66 @@ interface AgentExecutionCardProps {
 }
 
 export function AgentExecutionCard({ execution }: AgentExecutionCardProps) {
-  const getStatusIcon = () => {
+  const getStatusConfig = () => {
     switch (execution.status) {
       case 'running':
-        return <Loader2 className="w-4 h-4 animate-spin text-blue-500" />;
+        return {
+          bg: 'bg-[#5B5EFF]/[0.08]',
+          text: 'text-[#5B5EFF]',
+          border: 'border-[#5B5EFF]/20',
+          icon: <Loader2 className="w-3 h-3 animate-spin text-[#5B5EFF]" />,
+          label: 'Running'
+        };
       case 'completed':
-        return <CheckCircle2 className="w-4 h-4 text-green-500" />;
+        return {
+          bg: 'bg-[#34C759]/[0.1]',
+          text: 'text-[#34C759]',
+          border: 'border-[#34C759]/20',
+          icon: <CheckCircle2 className="w-3 h-3 text-[#34C759]" />,
+          label: 'Done'
+        };
       case 'failed':
-        return <XCircle className="w-4 h-4 text-red-500" />;
+        return {
+          bg: 'bg-[#FF3B30]/[0.1]',
+          text: 'text-[#FF3B30]',
+          border: 'border-[#FF3B30]/20',
+          icon: <XCircle className="w-3 h-3 text-[#FF3B30]" />,
+          label: 'Failed'
+        };
       default:
-        return <Clock className="w-4 h-4 text-muted-foreground" />;
+        return {
+          bg: 'bg-[#6E6E73]/[0.08]',
+          text: 'text-[#6E6E73]',
+          border: 'border-[#6E6E73]/20',
+          icon: <div className="w-1.5 h-1.5 rounded-full bg-[#6E6E73]" />,
+          label: 'Pending'
+        };
     }
   };
 
-  const getStatusColor = () => {
-    switch (execution.status) {
-      case 'running':
-        return 'border-blue-500/50 bg-blue-500/10';
-      case 'completed':
-        return 'border-green-500/50 bg-green-500/10';
-      case 'failed':
-        return 'border-red-500/50 bg-red-500/10';
-      default:
-        return 'border-muted bg-muted/30';
-    }
-  };
+  const config = getStatusConfig();
 
   return (
-    <div className={cn(
-      'text-sm p-3 rounded-lg border',
-      getStatusColor()
-    )}>
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          {getStatusIcon()}
-          <span className="font-medium">{execution.agent_name}</span>
-        </div>
-        {execution.execution_time_ms && (
-          <span className="text-xs text-muted-foreground">
-            {formatExecutionTime(execution.execution_time_ms)}
-          </span>
-        )}
-      </div>
-
-      {execution.error_message && (
-        <p className="text-xs text-red-500 mt-2">{execution.error_message}</p>
+    <div
+      className={cn(
+        'inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[12px] font-medium border',
+        config.bg,
+        config.text,
+        config.border
       )}
-
-      {execution.output_data && Object.keys(execution.output_data).length > 0 && (
-        <div className="mt-2 text-xs text-muted-foreground">
-          <span className="font-medium">Output:</span>{' '}
-          {JSON.stringify(execution.output_data)}
+    >
+      {execution.status === 'running' && (
+        <div className="relative">
+          <div className="w-1.5 h-1.5 rounded-full bg-[#5B5EFF] absolute" />
+          <div className="w-1.5 h-1.5 rounded-full bg-[#5B5EFF] agent-running" />
         </div>
+      )}
+      {execution.status !== 'running' && config.icon}
+      <span className="whitespace-nowrap">{execution.agent_name}</span>
+      {execution.status === 'completed' && execution.execution_time_ms && (
+        <span className="text-[10px] text-[#6E6E73]/60 ml-0.5">
+          {formatExecutionTime(execution.execution_time_ms)}
+        </span>
       )}
     </div>
   );

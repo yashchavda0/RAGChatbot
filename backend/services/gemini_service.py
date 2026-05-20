@@ -2,6 +2,7 @@
 Gemini LLM service for text generation and chat completion.
 """
 import os
+import asyncio
 from typing import Optional, List, Dict, Any
 from google import generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
@@ -33,8 +34,33 @@ class GeminiService:
         self.model_name = settings.gemini_model
         self.temperature = settings.gemini_temperature
         self.max_tokens = settings.gemini_max_tokens
+        self.max_retries = 3
+        self.retry_base_delay = 1.0  # seconds
 
         logger.info(f"Gemini service initialized with model: {self.model_name}")
+
+    def _is_retryable(self, exc: Exception) -> bool:
+        """Return True for transient errors that warrant a retry."""
+        error_str = str(exc).lower()
+        return any(kw in error_str for kw in (
+            "rate limit", "quota", "503", "500", "timeout", "resource exhausted",
+            "service unavailable", "internal server error",
+        ))
+
+    async def _with_retry(self, coro_fn, *args, **kwargs):
+        """Run an async callable with exponential backoff on transient failures."""
+        for attempt in range(self.max_retries + 1):
+            try:
+                return await coro_fn(*args, **kwargs)
+            except Exception as e:
+                if attempt == self.max_retries or not self._is_retryable(e):
+                    raise
+                delay = self.retry_base_delay * (2 ** attempt)
+                logger.warning(
+                    f"Gemini API transient error (attempt {attempt + 1}/{self.max_retries}), "
+                    f"retrying in {delay:.1f}s: {e}"
+                )
+                await asyncio.sleep(delay)
 
     def _create_model(self, **kwargs):
         """Create a generative model instance."""
@@ -83,12 +109,11 @@ class GeminiService:
 
             logger.info(f"Calling Gemini API (prompt length: {len(prompt)})")
 
-            response = await gen_model.generate_content_async(prompt)
+            async def _call():
+                response = await gen_model.generate_content_async(prompt)
+                return response.parts[0].text if response.parts else ""
 
-            if response.parts:
-                result = response.parts[0].text
-            else:
-                result = ""
+            result = await self._with_retry(_call)
 
             logger.info(f"Gemini API response (length: {len(result)})")
 
@@ -144,9 +169,11 @@ class GeminiService:
 
             logger.info(f"Calling Gemini chat API (messages: {len(messages)})")
 
-            response = await chat.send_message_async(last_message)
+            async def _call():
+                response = await chat.send_message_async(last_message)
+                return response.parts[0].text if response.parts else ""
 
-            result = response.parts[0].text if response.parts else ""
+            result = await self._with_retry(_call)
 
             logger.info(f"Gemini chat API response (length: {len(result)})")
 
@@ -214,3 +241,15 @@ class GeminiService:
             logger.error(f"Error counting tokens: {e}")
             # Rough estimate: ~4 characters per token
             return len(text) // 4
+
+
+# Global singleton
+_gemini_service: Optional["GeminiService"] = None
+
+
+def get_gemini_service() -> "GeminiService":
+    """Get or create the global Gemini service instance."""
+    global _gemini_service
+    if _gemini_service is None:
+        _gemini_service = GeminiService()
+    return _gemini_service

@@ -33,9 +33,9 @@ class WebSearchAgent(BaseAgent):
         )
 
         try:
-            from services.tavily_service import TavilyService
+            from services.tavily_service import get_tavily_service
 
-            tavily_service = TavilyService()
+            tavily_service = get_tavily_service()
 
             results = await tavily_service.search(
                 query=state["query"],

@@ -4,57 +4,34 @@ uvicorn==0.24.0
 python-multipart==0.0.6
 pydantic>=2.7.0,<3.0.0
 pydantic-settings>=2.3.0
-python-dotenv==1.0.0
 
-# LangGraph and LangChain
+# Agent Orchestration
 langgraph>=0.2.0
-langchain>=0.3.0
-langchain-google-genai>=2.0.0
-langchain-community>=0.0.10
 
-# LLM
+# LLM + Embeddings (Gemini API — zero local memory)
 google-generativeai>=0.3.0
 
 # Vector Database (Milvus)
-pymilvus>=2.3.0
+pymilvus>=2.4.0
 
-# Database (PostgreSQL + Alembic)
+# Database (PostgreSQL)
 psycopg2-binary>=2.9.0
 sqlalchemy>=2.0.0
-alembic>=1.13.0
-asyncpg>=0.29.0  # Async PostgreSQL for LangGraph checkpointer
 
 # Cache (Redis)
 redis>=5.0.0
 
-# OCR
-paddleocr>=2.7.0
-paddlepaddle>=2.5.0
-opencv-python>=4.8.0
-Pillow>=10.0.0
-
-# Embeddings
-sentence-transformers>=2.2.0
-FlagEmbedding>=1.2.0
+# Azure Document Intelligence (cloud OCR — zero local memory)
+azure-ai-formrecognizer>=3.3.0
 
 # Web Search
 tavily-python>=0.3.0
 
-# WebSocket
-websockets>=12.0
-
 # Document Processing
-PyPDF2>=3.0.1
+pypdf>=4.0.0
 python-docx>=0.8.11
 
-# HTTP
-requests>=2.31.0
+# HTTP / Web Scraping
 aiohttp>=3.9.0
 beautifulsoup4>=4.12.0
 lxml>=5.0.0
-
-# Logging
-python-logging-loki>=0.3.0
-
-# CORS
-fastapi-cors==0.0.6

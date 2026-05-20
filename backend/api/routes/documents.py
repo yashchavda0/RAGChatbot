@@ -1,95 +1,82 @@
-"""
-Document routes for uploading and managing documents.
-"""
+"""Document routes for uploading and managing documents."""
 import uuid
-from typing import List
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
-from fastapi.responses import JSONResponse
+from typing import List, Optional
+from fastapi import APIRouter, UploadFile, File, HTTPException, Query
 from config.logging_config import get_logger
 from services.document_processor import DocumentProcessorService
-from services.text_splitter import TextSplitterService
+from services.chunking_service import ChunkingService
 from services.embedding_service import get_embedding_service
-from services.milvus_service import MilvusService
-from services.session_manager import get_session_manager
+from services.milvus_service import get_milvus_service
 from api.schemas.chat import DocumentUploadResponse, DocumentListResponse
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 logger = get_logger(__name__)
 
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
+ALLOWED_EXTENSIONS = {".pdf", ".docx", ".doc", ".txt", ".md", ".markdown"}
+
 
 @router.post("/upload", response_model=DocumentUploadResponse)
 async def upload_document(
+    chatbot_id: str = Query(..., description="Chatbot ID to associate the document with"),
     file: UploadFile = File(...),
-    session_id: str = "default",
 ):
     """
     Upload and process a document.
 
     Supports: PDF, DOCX, TXT, MD
-    The document is:
-    1. Parsed for text
-    2. Split into chunks
-    3. Embedded with ALL 3 models (bge-small, bge-large, stella)
-    4. Stored in Milvus for retrieval
     """
     document_id = str(uuid.uuid4())
+    logger.info(f"Uploading document: {file.filename}")
 
-    logger.info(f"Uploading document: {file.filename} (session: {session_id})")
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Filename is required")
 
-    try:
-        # Read file content
-        content = await file.read()
-
-        # Check file type
-        processor = DocumentProcessorService()
-        if not processor.is_supported(file.filename):
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unsupported file type. Supported: {processor.supported_formats}"
-            )
-
-        # Process document
-        result = await processor.process_document(
-            file_content=content,
-            filename=file.filename,
-            extract_images=True,
+    file_ext = "." + file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+    if file_ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type. Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
         )
 
-        # Split into chunks
-        splitter = TextSplitterService()
-        chunks = splitter.split_text(result.get("text", ""))
+    try:
+        content = await file.read()
 
+        if len(content) > MAX_FILE_SIZE:
+            raise HTTPException(status_code=413, detail=f"File too large. Max: {MAX_FILE_SIZE // (1024 * 1024)} MB")
+
+        if len(content) == 0:
+            raise HTTPException(status_code=400, detail="Empty file not allowed")
+
+        # Process document
+        processor = DocumentProcessorService()
+        result = await processor.process_document(file_content=content, filename=file.filename)
+
+        # Split into chunks
+        chunker = ChunkingService()
+        chunk_result = chunker.split_text(result.get("text", ""))
+        chunks = [c["content"] for c in chunk_result]
         logger.info(f"Document split into {len(chunks)} chunks")
 
-        # Generate embeddings with all models
+        # Generate embeddings and store
         embedding_service = get_embedding_service()
-        milvus_service = MilvusService()
+        milvus_service = get_milvus_service()
 
-        # Embed with all models and store in Milvus
         all_embeddings = await embedding_service.embed_documents_with_all_models(chunks)
 
         total_inserted = 0
-
         for model_name, embeddings in all_embeddings.items():
-            # Insert embeddings for this model
             inserted = await milvus_service.insert_embeddings(
                 embeddings=embeddings,
+                chatbot_id=chatbot_id,
                 document_id=document_id,
                 chunks=chunks,
                 embedding_model=model_name,
-                metadata=[{"filename": file.filename}] * len(chunks),
+                metadata=[{"filename": file.filename, "source_type": "upload"}] * len(chunks),
             )
-
             total_inserted += len(inserted)
 
-        # Save document metadata to database
-        session_manager = get_session_manager()
-        # Note: Would need to add document to database in production
-
-        logger.info(
-            f"Document uploaded successfully: {file.filename} "
-            f"({total_inserted} embeddings across {len(all_embeddings)} models)"
-        )
+        logger.info(f"Document uploaded: {file.filename} ({total_inserted} embeddings)")
 
         return DocumentUploadResponse(
             message="Document processed successfully",
@@ -98,62 +85,145 @@ async def upload_document(
             embedding_models=list(all_embeddings.keys()),
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error uploading document: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to process document")
 
 
 @router.get("", response_model=DocumentListResponse)
-async def list_documents(session_id: str = "default"):
-    """List all documents for a session."""
+async def list_documents():
+    """List all documents from Milvus."""
     try:
-        # TODO: Implement document listing from database
-        return DocumentListResponse(documents=[])
+        milvus_service = get_milvus_service()
+        stats = await milvus_service.get_stats()
+
+        return DocumentListResponse(
+            documents=[{
+                "total_vectors": stats.get("count", 0),
+                "dimension": stats.get("dimension", 0),
+            }]
+        )
+
     except Exception as e:
         logger.error(f"Error listing documents: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to list documents")
 
 
 @router.delete("/{document_id}")
 async def delete_document(document_id: str):
-    """Delete a document and its embeddings from Milvus."""
+    """Delete a document and its embeddings."""
     try:
-        from services.milvus_service import MilvusService
-
-        milvus_service = MilvusService()
-
-        # Delete from Milvus
+        milvus_service = get_milvus_service()
         count = await milvus_service.delete_document(document_id)
-
-        # TODO: Delete from database
-
-        logger.info(f"Document deleted: {document_id} ({count} embeddings removed)")
-
-        return {"message": "Document deleted successfully", "embeddings_removed": count}
+        logger.info(f"Document deleted: {document_id} ({count} embeddings)")
+        return {"message": "Document deleted", "embeddings_removed": count}
 
     except Exception as e:
         logger.error(f"Error deleting document: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to delete document")
 
 
 @router.post("/url")
-async def upload_url(url: str, session_id: str = "default"):
+async def upload_url(
+    chatbot_id: str = Query(..., description="Chatbot ID to associate the URL with"),
+    url: str = Query(..., description="URL to process"),
+):
     """Process a URL and index its content."""
-    document_id = str(uuid.uuid4())
+    import asyncio
+    import aiohttp
+    from bs4 import BeautifulSoup
+    from urllib.parse import urlparse
 
+    document_id = str(uuid.uuid4())
     logger.info(f"Processing URL: {url}")
 
+    # Validate URL
     try:
-        # TODO: Implement URL fetching and processing
-        # For now, return a placeholder response
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            raise HTTPException(status_code=400, detail="URL must use http or https")
+        if not parsed.netloc:
+            raise HTTPException(status_code=400, detail="Invalid URL: missing domain")
+        # SSRF protection - block private/internal addresses
+        import ipaddress
+        import socket
+        hostname = parsed.hostname or ""
+        try:
+            resolved_ips = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+            for _, _, _, _, addr in resolved_ips:
+                ip = ipaddress.ip_address(addr[0])
+                if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                    raise HTTPException(status_code=400, detail="URL resolves to a private/internal address")
+                if str(ip) == "169.254.169.254":
+                    raise HTTPException(status_code=400, detail="Cloud metadata endpoint is not allowed")
+        except socket.gaierror:
+            raise HTTPException(status_code=400, detail="Could not resolve URL hostname")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid URL: {e}")
+
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "text/html,application/xhtml+xml",
+        }
+        timeout = aiohttp.ClientTimeout(total=30)
+
+        async with aiohttp.ClientSession(timeout=timeout) as client:
+            async with client.get(url, headers=headers, allow_redirects=True) as response:
+                if response.status != 200:
+                    raise HTTPException(status_code=400, detail=f"Failed to fetch: HTTP {response.status}")
+                html = await response.text()
+
+        # Parse HTML
+        soup = BeautifulSoup(html, "lxml")
+        for element in soup(["script", "style", "nav", "header", "footer"]):
+            element.decompose()
+
+        title = soup.title.get_text(strip=True) if soup.title else url
+        text = soup.body.get_text(separator="\n", strip=True) if soup.body else ""
+
+        lines = [line.strip() for line in text.split("\n") if line.strip()]
+        clean_text = "\n".join(lines)
+
+        if len(clean_text) < 100:
+            raise HTTPException(status_code=400, detail="Insufficient content from URL")
+
+        # Split and embed
+        chunker = ChunkingService()
+        chunk_result = chunker.split_text(clean_text)
+        chunks = [c["content"] for c in chunk_result]
+
+        embedding_service = get_embedding_service()
+        milvus_service = get_milvus_service()
+        all_embeddings = await embedding_service.embed_documents_with_all_models(chunks)
+
+        total_inserted = 0
+        for model_name, embeddings in all_embeddings.items():
+            inserted = await milvus_service.insert_embeddings(
+                embeddings=embeddings,
+                chatbot_id=chatbot_id,
+                document_id=document_id,
+                chunks=chunks,
+                embedding_model=model_name,
+                metadata=[{"filename": title, "source_url": url, "source_type": "url"}] * len(chunks),
+            )
+            total_inserted += len(inserted)
+
+        logger.info(f"URL processed: {url} ({total_inserted} embeddings)")
 
         return DocumentUploadResponse(
-            message="URL processing not yet implemented",
+            message="URL processed successfully",
             document_id=document_id,
-            chunks_created=0,
-            embedding_models=[],
+            chunks_created=len(chunks),
+            embedding_models=list(all_embeddings.keys()),
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error processing URL: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to process URL")

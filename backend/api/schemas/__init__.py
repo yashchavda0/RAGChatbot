@@ -1,23 +1,5 @@
-"""API schemas module."""
+"""API Schemas."""
+from .chat import ChatMessage, ChatResponse
+from .common import HealthResponse, ErrorResponse
 
-from .chat import (
-    ChatMessage,
-    ChatResponse,
-    DocumentUploadResponse,
-    DocumentListResponse,
-    AgentStatus,
-    WorkflowExecution,
-    StreamChatMessage,
-    StreamChatChunk,
-)
-
-__all__ = [
-    "ChatMessage",
-    "ChatResponse",
-    "DocumentUploadResponse",
-    "DocumentListResponse",
-    "AgentStatus",
-    "WorkflowExecution",
-    "StreamChatMessage",
-    "StreamChatChunk",
-]
+__all__ = ["ChatMessage", "ChatResponse", "HealthResponse", "ErrorResponse"]
