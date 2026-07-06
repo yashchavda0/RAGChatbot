@@ -2,12 +2,12 @@
 Chatbot service for CRUD operations and training management.
 """
 import uuid
+from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
-from sqlalchemy import create_engine, select, update, delete
-from sqlalchemy.orm import sessionmaker
-from config import settings
+from sqlalchemy import select, update, delete, func, case
 from config.logging_config import get_logger
-from services.models import Chatbot, ChatbotDocument, ChatbotMetadata
+from services.postgres_service import get_postgres_service
+from services.models import Chatbot, ChatbotDocument, ChatbotMetadata, ConversationMessage
 
 logger = get_logger(__name__)
 
@@ -17,22 +17,19 @@ class ChatbotService:
 
     def __init__(self):
         """Initialize the chatbot service."""
-        self.engine = None
-        self.Session = None
+        self._postgres = get_postgres_service()
 
     def _get_session(self):
-        """Get a database session."""
-        if self.engine is None:
-            self.engine = create_engine(settings.postgres_url, echo=False)
-            self.Session = sessionmaker(bind=self.engine)
-        return self.Session()
+        """Get a database session from the shared engine."""
+        return self._postgres.session_factory()
 
     async def create(
         self,
         name: str,
         description: Optional[str] = None,
         system_prompt: Optional[str] = None,
-        embedding_model: str = "bge-large-en-v1.5",
+        web_search_threshold: Optional[float] = None,
+        embedding_model: str = "gemini-embedding-001",
         chunk_size: int = 1024,
         chunk_overlap: int = 50,
     ) -> Dict[str, Any]:
@@ -59,10 +56,12 @@ class ChatbotService:
                 name=name,
                 description=description,
                 system_prompt=system_prompt or "You are a helpful assistant. Answer based only on the provided context from the knowledge base.",
+                web_search_threshold=web_search_threshold,
                 embedding_model=embedding_model,
                 chunk_size=chunk_size,
                 chunk_overlap=chunk_overlap,
                 status="draft",
+                settings={},
             )
 
             session.add(chatbot)
@@ -85,11 +84,13 @@ class ChatbotService:
                 "name": name,
                 "description": description,
                 "system_prompt": chatbot.system_prompt,
+                "web_search_threshold": chatbot.web_search_threshold,
                 "status": "draft",
                 "embedding_model": embedding_model,
                 "chunk_size": chunk_size,
                 "chunk_overlap": chunk_overlap,
                 "created_at": chatbot.created_at.isoformat(),
+                "settings": {},
             }
 
         except Exception as e:
@@ -122,16 +123,108 @@ class ChatbotService:
                 "name": result.name,
                 "description": result.description,
                 "system_prompt": result.system_prompt,
+                "web_search_threshold": result.web_search_threshold,
                 "status": result.status,
                 "embedding_model": result.embedding_model,
                 "chunk_size": result.chunk_size,
                 "chunk_overlap": result.chunk_overlap,
+                "settings": result.settings or {},
                 "created_at": result.created_at.isoformat() if result.created_at else None,
                 "updated_at": result.updated_at.isoformat() if result.updated_at else None,
             }
 
         finally:
             session.close()
+
+    def _get_chatbot_stats(
+        self, chatbot_ids: List[str], session
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Compute conversation/message/document aggregate stats for a set of chatbots
+        in two grouped queries (no N+1).
+
+        Args:
+            chatbot_ids: Chatbot ids to compute stats for
+            session: An already-open SQLAlchemy session
+
+        Returns:
+            Dict keyed by chatbot_id, each value containing conversation_count,
+            message_count, last_active_at (ISO string or None), document_count,
+            messages_this_week, messages_prior_week.
+        """
+        if not chatbot_ids:
+            return {}
+
+        now = datetime.utcnow()
+        week_ago = now - timedelta(days=7)
+        two_weeks_ago = now - timedelta(days=14)
+
+        stats: Dict[str, Dict[str, Any]] = {
+            cid: {
+                "conversation_count": 0,
+                "message_count": 0,
+                "last_active_at": None,
+                "document_count": 0,
+                "messages_this_week": 0,
+                "messages_prior_week": 0,
+            }
+            for cid in chatbot_ids
+        }
+
+        message_stmt = (
+            select(
+                ConversationMessage.chatbot_id,
+                func.count(func.distinct(ConversationMessage.session_id)).label(
+                    "conversation_count"
+                ),
+                func.count(ConversationMessage.message_id).label("message_count"),
+                func.max(ConversationMessage.timestamp).label("last_active_at"),
+                func.sum(
+                    case((ConversationMessage.timestamp >= week_ago, 1), else_=0)
+                ).label("messages_this_week"),
+                func.sum(
+                    case(
+                        (
+                            (ConversationMessage.timestamp >= two_weeks_ago)
+                            & (ConversationMessage.timestamp < week_ago),
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ).label("messages_prior_week"),
+            )
+            .where(ConversationMessage.chatbot_id.in_(chatbot_ids))
+            .group_by(ConversationMessage.chatbot_id)
+        )
+
+        for row in session.execute(message_stmt):
+            if row.chatbot_id in stats:
+                stats[row.chatbot_id].update(
+                    {
+                        "conversation_count": row.conversation_count or 0,
+                        "message_count": row.message_count or 0,
+                        "last_active_at": (
+                            row.last_active_at.isoformat() if row.last_active_at else None
+                        ),
+                        "messages_this_week": int(row.messages_this_week or 0),
+                        "messages_prior_week": int(row.messages_prior_week or 0),
+                    }
+                )
+
+        document_stmt = (
+            select(
+                ChatbotDocument.chatbot_id,
+                func.count(ChatbotDocument.id).label("document_count"),
+            )
+            .where(ChatbotDocument.chatbot_id.in_(chatbot_ids))
+            .group_by(ChatbotDocument.chatbot_id)
+        )
+
+        for row in session.execute(document_stmt):
+            if row.chatbot_id in stats:
+                stats[row.chatbot_id]["document_count"] = row.document_count or 0
+
+        return stats
 
     async def list(
         self,
@@ -167,10 +260,19 @@ class ChatbotService:
                     "id": r.id,
                     "name": r.name,
                     "description": r.description,
+                    "system_prompt": r.system_prompt,
+                    "web_search_threshold": r.web_search_threshold,
                     "status": r.status,
                     "embedding_model": r.embedding_model,
+                    "chunk_size": r.chunk_size,
+                    "chunk_overlap": r.chunk_overlap,
+                    "settings": r.settings or {},
                     "created_at": r.created_at.isoformat() if r.created_at else None,
                 })
+
+            stats_by_id = self._get_chatbot_stats([c["id"] for c in chatbots], session)
+            for c in chatbots:
+                c.update(stats_by_id.get(c["id"], {}))
 
             return chatbots
 
@@ -183,7 +285,9 @@ class ChatbotService:
         name: Optional[str] = None,
         description: Optional[str] = None,
         system_prompt: Optional[str] = None,
+        web_search_threshold: Optional[float] = None,
         status: Optional[str] = None,
+        settings: Optional[Dict[str, Any]] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         Update a chatbot.
@@ -194,6 +298,7 @@ class ChatbotService:
             description: New description
             system_prompt: New system prompt
             status: New status
+            settings: Settings dict to merge into existing settings
 
         Returns:
             Updated chatbot data or None
@@ -212,8 +317,14 @@ class ChatbotService:
                 chatbot.description = description
             if system_prompt is not None:
                 chatbot.system_prompt = system_prompt
+            if web_search_threshold is not None:
+                chatbot.web_search_threshold = web_search_threshold
             if status is not None:
                 chatbot.status = status
+            if settings is not None:
+                existing_settings = chatbot.settings or {}
+                existing_settings.update(settings)
+                chatbot.settings = existing_settings
 
             session.commit()
 
