@@ -1,14 +1,19 @@
 """
-Reranker Agent - Execution
+Reranker Agent — always-on, top-N, with score tracking.
 
-Reranks and merges results from multiple sources using Gemini.
-Combines document search results, web search results, and OCR outputs into a single
-ranked list for optimal relevance.
+V2 changes:
+- Always runs (no pre-rerank relevance checks)
+- Uses retrieval_candidates (top 30) as input
+- Returns top settings.reranker_top_n (default 5) results
+- Records reranker_scores and reranker_top_score on state
 """
+import json
+
 from agents.base.base_agent import BaseAgent, register_agent
 from graph.state import RAGState, update_agent_execution
 from config import settings
 from config.logging_config import get_logger
+from services.observability import get_observability_service
 
 logger = get_logger(__name__)
 
@@ -17,91 +22,93 @@ logger = get_logger(__name__)
     agent_id="reranker",
     name="Reranker",
     capabilities=["reranking", "ranking", "merging"],
-    description="Reranks and merges results using Gemini"
+    description="Reranks retrieval candidates using Gemini cosine similarity → top 5",
 )
 class RerankerAgent(BaseAgent):
-    """Rerank and merge results from all sources."""
 
     async def execute(self, state: RAGState) -> RAGState:
-        """Rerank results from multiple sources."""
-        logger.info("Reranking results...")
+        query = state.get("query_rewritten") or state.get("query", "")
 
-        state = update_agent_execution(
-            state,
-            agent_id=self.agent_id,
-            agent_name=self.agent_name,
-            status="running",
-            input_data={
-                "documents_count": len(state.get("documents", [])),
-                "web_results_count": len(state.get("web_results", [])),
-            },
+        # V2: use retrieval_candidates; fall back to legacy documents field
+        candidates = state.get("retrieval_candidates") or state.get("documents", [])
+
+        # Also include OCR and URL results if present (non-document mode)
+        all_inputs = list(candidates)
+        for ocr in state.get("ocr_results", []):
+            all_inputs.append({"content": ocr.get("text", ""), "source": "ocr", "metadata": ocr})
+        for url in state.get("url_results", []):
+            all_inputs.append({"content": url.get("content", ""), "source": "url", "metadata": url})
+
+        update_agent_execution(
+            state, self.agent_id, self.agent_name, "running",
+            {"candidates": len(all_inputs), "query": query[:80]},
         )
+
+        obs = get_observability_service()
+        trace_id = state.get("langsmith_trace_id", "")
+        top_n = settings.reranker_top_n  # default 5
+
+        if not all_inputs:
+            state["reranked_results"] = []
+            state["reranker_scores"] = []
+            state["reranker_top_score"] = 0.0
+            update_agent_execution(
+                state, self.agent_id, self.agent_name, "completed",
+                {}, {"reranked": 0},
+            )
+            return state
 
         try:
             from services.baai_reranker_service import get_reranker_service
 
-            reranker_service = get_reranker_service()
-
-            # Combine all results
-            all_results = []
-
-            # Add document results
-            for doc in state.get("documents", []):
-                all_results.append({
-                    "content": doc.get("content", ""),
-                    "source": "document",
-                    "metadata": doc,
-                })
-
-            # Add web results
-            for web in state.get("web_results", []):
-                all_results.append({
-                    "content": web.get("content", web.get("snippet", "")),
-                    "source": "web",
-                    "metadata": web,
-                })
-
-            # Add OCR results
-            for ocr in state.get("ocr_results", []):
-                all_results.append({
-                    "content": ocr.get("text", ""),
-                    "source": "ocr",
-                    "metadata": ocr,
-                })
-
-            # Rerank
-            if all_results:
-                reranked = await reranker_service.rerank(
-                    query=state["query"],
-                    documents=all_results,
-                    top_k=settings.reranker_top_k,
-                )
-
-                state["reranked_results"] = reranked
-            else:
-                state["reranked_results"] = []
-
-            state = update_agent_execution(
-                state,
-                agent_id=self.agent_id,
-                agent_name=self.agent_name,
-                status="completed",
-                output_data={"results_count": len(state.get("reranked_results", []))},
+            reranked = await get_reranker_service().rerank(
+                query=query,
+                documents=all_inputs,
+                top_k=top_n,
             )
 
-            logger.info(f"Reranked to {len(state.get('reranked_results', []))} results")
+            scores = [float(r.get("reranker_score", r.get("score", 0.0))) for r in reranked]
+            top_score = scores[0] if scores else 0.0
 
-        except Exception as e:
-            logger.error(f"Error in reranking: {e}")
-            # Use original results if reranking fails
-            state["reranked_results"] = state.get("documents", [])[:settings.reranker_top_k]
+            state["reranked_results"] = reranked
+            state["reranker_scores"] = scores
+            state["reranker_top_score"] = top_score
 
-            state = update_agent_execution(
-                state,
-                agent_id=self.agent_id,
-                agent_name=self.agent_name,
-                status="failed",
-                error_message=str(e),
+            obs.log_retrieval_metrics(
+                trace_id,
+                n_candidates=len(all_inputs),
+                n_reranked=len(reranked),
+                top_score=top_score,
+                latency_ms=0.0,
+                cache_hit=False,
+            )
+
+            logger.info(json.dumps({
+                "event": "reranker.completed",
+                "candidates": len(all_inputs),
+                "reranked": len(reranked),
+                "top_score": round(top_score, 4),
+            }))
+
+            update_agent_execution(
+                state, self.agent_id, self.agent_name, "completed",
+                {"candidates": len(all_inputs)},
+                {"reranked": len(reranked), "top_score": round(top_score, 4)},
+            )
+
+        except Exception as exc:
+            logger.error("Reranker failed: %s", exc)
+            # Fallback: return first top_n candidates with score 0.5
+            fallback = all_inputs[:top_n]
+            for doc in fallback:
+                doc["reranker_score"] = 0.5
+            state["reranked_results"] = fallback
+            state["reranker_scores"] = [0.5] * len(fallback)
+            state["reranker_top_score"] = 0.5 if fallback else 0.0
+
+            update_agent_execution(
+                state, self.agent_id, self.agent_name, "failed",
+                {}, error_message=str(exc),
             )
 
         return state

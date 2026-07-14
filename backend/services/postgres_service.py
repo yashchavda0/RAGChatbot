@@ -120,6 +120,12 @@ class PostgreSQLService:
             logger.error(f"Error executing command: {e}")
             raise
 
+    def dispose(self):
+        """Dispose of the SQLAlchemy engine and all pooled connections."""
+        if self.engine:
+            self.engine.dispose()
+            logger.info("PostgreSQL engine disposed")
+
     async def health_check(self) -> bool:
         """Check database health."""
         try:

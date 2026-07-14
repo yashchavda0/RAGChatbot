@@ -1,17 +1,29 @@
 // Chat Types
 export interface ChatMessage {
   id: string;
-  role: 'user' | 'assistant' | 'system';
+  role: "user" | "assistant" | "system";
   content: string;
   timestamp: Date;
   sources?: Source[];
   agent_executions?: AgentExecution[];
+  source_type?: "document" | "web" | "mixed";
+  intent_confidence?: number;
+  retrieval_confidence?: number;
+  answer_source?: "documents" | "web" | "fallback";
+  fallback_reason?: string;
+  suggested_questions?: string[];
 }
 
 export interface Source {
-  type: 'document' | 'web' | 'ocr' | 'url';
+  type: "document" | "web" | "ocr" | "url";
   filename?: string;
+  document_name?: string;
+  document_id?: string;
   chunk_id?: string;
+  chunk_number?: number;
+  page_number?: number;
+  similarity_score?: number;
+  content_preview?: string;
   url?: string;
   title?: string;
   snippet?: string;
@@ -20,7 +32,7 @@ export interface Source {
 export interface AgentExecution {
   agent_id: string;
   agent_name: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
+  status: "pending" | "running" | "completed" | "failed";
   input_data?: Record<string, unknown>;
   output_data?: Record<string, unknown>;
   error_message?: string;
@@ -33,14 +45,14 @@ export interface AgentExecution {
 export interface Agent {
   agent_id: string;
   agent_name: string;
-  agent_type: 'orchestration' | 'execution' | 'indexing';
+  agent_type: "orchestration" | "execution" | "indexing";
   description?: string;
   capabilities?: string[];
   is_active?: boolean;
 }
 
 export interface AgentStatus extends Agent {
-  current_status?: 'idle' | 'running';
+  current_status?: "idle" | "running";
   last_execution?: AgentExecution;
 }
 
@@ -58,37 +70,37 @@ export interface Document {
 export interface UploadProgress {
   filename: string;
   progress: number;
-  status: 'uploading' | 'processing' | 'indexing' | 'complete' | 'error';
+  status: "uploading" | "processing" | "indexing" | "complete" | "error";
   error?: string;
 }
 
 // WebSocket Message Types
 export interface WSMessage {
-  type: 'agent_update' | 'chat_chunk' | 'chat_complete' | 'error';
+  type: "agent_update" | "chat_chunk" | "chat_complete" | "error";
   session_id?: string;
   data: unknown;
 }
 
 export interface AgentUpdateMessage extends WSMessage {
-  type: 'agent_update';
+  type: "agent_update";
   data: {
     agent_id: string;
     agent_name: string;
-    status: 'running' | 'completed' | 'failed';
+    status: "running" | "completed" | "failed";
     output_data?: Record<string, unknown>;
     error?: string;
   };
 }
 
 export interface ChatChunkMessage extends WSMessage {
-  type: 'chat_chunk';
+  type: "chat_chunk";
   data: {
     chunk: string;
   };
 }
 
 export interface ChatCompleteMessage extends WSMessage {
-  type: 'chat_complete';
+  type: "chat_complete";
   data: {
     response: string;
     sources: Source[];
@@ -97,7 +109,7 @@ export interface ChatCompleteMessage extends WSMessage {
 }
 
 export interface ErrorMessage extends WSMessage {
-  type: 'error';
+  type: "error";
   data: {
     message: string;
     details?: string;
@@ -106,7 +118,7 @@ export interface ErrorMessage extends WSMessage {
 
 // WebSocket message sending types
 export interface WSChatMessage {
-  type: 'chat_message';
+  type: "chat_message";
   session_id: string;
   message: string;
 }
@@ -115,8 +127,8 @@ export interface WSChatMessage {
 export interface WorkflowNode {
   id: string;
   label: string;
-  type: 'entry' | 'orchestration' | 'execution' | 'exit';
-  status: 'idle' | 'running' | 'completed' | 'failed';
+  type: "entry" | "orchestration" | "execution" | "exit";
+  status: "idle" | "running" | "completed" | "failed";
   position: { x: number; y: number };
 }
 
@@ -137,8 +149,7 @@ export interface WorkflowGraph {
 export type {
   ConversationMessage,
   ConversationSource,
-  ConversationUser,
   Conversation,
   ConversationFilters,
   ConversationPagination,
-} from './conversation';
+} from "./conversation";

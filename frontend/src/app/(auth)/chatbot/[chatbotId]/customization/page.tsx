@@ -1,20 +1,20 @@
 'use client';
 
-import { use, useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { ColorPicker } from '@/components/customization/ColorPicker';
-import { WidgetPreview } from '@/components/customization/WidgetPreview';
+import { WidgetChatSurface } from '@/components/widget/WidgetChatSurface';
 import {
-  SettingsSection,
   SettingRow,
   Toggle,
   Slider,
   Select,
 } from '@/components/settings/SettingsSection';
+import { customizationApi } from '@/lib/api';
 
 interface CustomizationSettings {
   // Appearance
@@ -34,6 +34,9 @@ interface CustomizationSettings {
   autoOpen: boolean;
   showTypingIndicator: boolean;
   collectUserInfo: boolean;
+  inputMaxChars: number;
+  buttonText: string;
+  showBranding: boolean;
 }
 
 const defaultSettings: CustomizationSettings = {
@@ -50,18 +53,82 @@ const defaultSettings: CustomizationSettings = {
   autoOpen: false,
   showTypingIndicator: true,
   collectUserInfo: false,
+  inputMaxChars: 2000,
+  buttonText: 'Chat with us',
+  showBranding: true,
 };
 
+function toBackendFormat(settings: CustomizationSettings) {
+  return {
+    primary_color: settings.primaryColor,
+    position: settings.position,
+    size: settings.size,
+    border_radius: settings.borderRadius,
+    font_family: settings.fontFamily,
+    greeting: settings.greeting,
+    welcome_message: settings.welcomeMessage,
+    placeholder: settings.placeholder,
+    bot_name: settings.botName,
+    avatar_url: settings.avatarUrl || null,
+    auto_open: settings.autoOpen,
+    show_typing_indicator: settings.showTypingIndicator,
+    collect_user_info: settings.collectUserInfo,
+    input_max_chars: settings.inputMaxChars,
+    button_text: settings.buttonText,
+    show_branding: settings.showBranding,
+  };
+}
+
+function toFrontendFormat(data: Record<string, any>): CustomizationSettings {
+  return {
+    primaryColor: data.primary_color || defaultSettings.primaryColor,
+    position: data.position || defaultSettings.position,
+    size: data.size || defaultSettings.size,
+    borderRadius: data.border_radius ?? defaultSettings.borderRadius,
+    fontFamily: data.font_family || defaultSettings.fontFamily,
+    greeting: data.greeting || defaultSettings.greeting,
+    welcomeMessage: data.welcome_message || defaultSettings.welcomeMessage,
+    placeholder: data.placeholder || defaultSettings.placeholder,
+    botName: data.bot_name || defaultSettings.botName,
+    avatarUrl: data.avatar_url || defaultSettings.avatarUrl,
+    autoOpen: data.auto_open ?? defaultSettings.autoOpen,
+    showTypingIndicator: data.show_typing_indicator ?? defaultSettings.showTypingIndicator,
+    collectUserInfo: data.collect_user_info ?? defaultSettings.collectUserInfo,
+    inputMaxChars: data.input_max_chars ?? defaultSettings.inputMaxChars,
+    buttonText: data.button_text || defaultSettings.buttonText,
+    showBranding: data.show_branding ?? defaultSettings.showBranding,
+  };
+}
+
 interface CustomizationPageProps {
-  params: Promise<{ chatbotId: string }>;
+  params: { chatbotId: string };
 }
 
 export default function CustomizationPage({ params }: CustomizationPageProps) {
-  const { chatbotId } = use(params);
+  const { chatbotId } = params;
+  const widgetApiBaseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/$/, '');
   const [settings, setSettings] = useState<CustomizationSettings>(defaultSettings);
   const [originalSettings, setOriginalSettings] = useState<CustomizationSettings>(defaultSettings);
   const [isSaving, setIsSaving] = useState(false);
-  const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [inputMaxCharsError, setInputMaxCharsError] = useState<string>("");
+  useEffect(() => {
+    async function fetchCustomization() {
+      try {
+        setIsLoading(true);
+        const data = await customizationApi.get(chatbotId);
+        const loaded = toFrontendFormat(data as unknown as Record<string, any>);
+        setSettings(loaded);
+        setOriginalSettings(loaded);
+      } catch (err) {
+        console.error('Failed to load customization:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchCustomization();
+  }, [chatbotId]);
 
   const updateSetting = useCallback(<K extends keyof CustomizationSettings>(
     key: K,
@@ -74,12 +141,13 @@ export default function CustomizationPage({ params }: CustomizationPageProps) {
 
   const handleSave = async () => {
     setIsSaving(true);
+    setSaveError(null);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await customizationApi.update(chatbotId, toBackendFormat(settings));
       setOriginalSettings(settings);
-      // In production: await api.saveCustomization(chatbotId, settings);
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to save settings';
+      setSaveError(message);
       console.error('Failed to save settings:', error);
     } finally {
       setIsSaving(false);
@@ -88,19 +156,37 @@ export default function CustomizationPage({ params }: CustomizationPageProps) {
 
   const handleReset = () => {
     setSettings(originalSettings);
+    setSaveError(null);
   };
 
-  const sections = [
-    { id: 'appearance', label: 'Appearance', icon: 'palette' },
-    { id: 'welcome', label: 'Welcome Message', icon: 'message' },
-    { id: 'avatar', label: 'Avatar', icon: 'user' },
-    { id: 'behavior', label: 'Behavior', icon: 'settings' },
-  ];
+  if (isLoading) {
+    return (
+      <div className="h-full flex flex-col animate-pulse">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <div>
+            <div className="h-8 bg-[#E5E5EA] rounded w-40 mb-2" />
+            <div className="h-4 bg-[#E5E5EA] rounded w-72" />
+          </div>
+          <div className="flex gap-3">
+            <div className="h-9 w-20 bg-[#E5E5EA] rounded" />
+            <div className="h-9 w-28 bg-[#E5E5EA] rounded" />
+          </div>
+        </div>
+        <div className="flex-1 flex gap-6">
+          <div className="flex-1 space-y-6">
+            <div className="h-64 bg-[#E5E5EA] rounded-2xl" />
+            <div className="h-48 bg-[#E5E5EA] rounded-2xl" />
+            <div className="h-48 bg-[#E5E5EA] rounded-2xl" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
         <div>
           <h1 className="text-2xl font-bold text-[#1D1D1F]">Customization</h1>
           <p className="text-[#6E6E73] mt-1">
@@ -108,7 +194,10 @@ export default function CustomizationPage({ params }: CustomizationPageProps) {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {hasChanges && (
+          {saveError && (
+            <span className="text-xs text-[#FF3B30]">{saveError}</span>
+          )}
+          {hasChanges && !saveError && (
             <span className="text-xs text-[#6E6E73]">Unsaved changes</span>
           )}
           <Button variant="outline" onClick={handleReset} disabled={!hasChanges || isSaving}>
@@ -128,11 +217,11 @@ export default function CustomizationPage({ params }: CustomizationPageProps) {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex gap-6 min-h-0">
+      <div className="flex-1 flex gap-5 min-h-0">
         {/* Settings Panel */}
         <div className="flex-1 min-w-0">
-          <ScrollArea className="h-full pr-4">
-            <div className="space-y-6 pb-6">
+          <ScrollArea className="h-full pr-3">
+            <div className="space-y-4 pb-5">
               {/* Appearance Section */}
               <Card>
                 <CardHeader>
@@ -148,7 +237,7 @@ export default function CustomizationPage({ params }: CustomizationPageProps) {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-5">
+                <CardContent className="space-y-4">
                   <SettingRow label="Primary Color" description="Main brand color for the widget">
                     <ColorPicker
                       value={settings.primaryColor}
@@ -222,7 +311,7 @@ export default function CustomizationPage({ params }: CustomizationPageProps) {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-5">
+                <CardContent className="space-y-4">
                   <SettingRow label="Greeting" description="Short greeting text">
                     <Input
                       value={settings.greeting}
@@ -276,7 +365,7 @@ export default function CustomizationPage({ params }: CustomizationPageProps) {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-5">
+                <CardContent className="space-y-4">
                   <SettingRow label="Bot Name" description="Name displayed in the chat header">
                     <Input
                       value={settings.botName}
@@ -359,25 +448,71 @@ export default function CustomizationPage({ params }: CustomizationPageProps) {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-5">
-                  <SettingRow label="Auto-Open Widget" description="Automatically open chat when page loads">
+                <CardContent className="space-y-4">
+                  <SettingRow label="Auto-Open Widget" description="Automatically open chat when page loads" controlClassName="sm:w-fit">
                     <Toggle
                       checked={settings.autoOpen}
                       onChange={(checked) => updateSetting('autoOpen', checked)}
                     />
                   </SettingRow>
 
-                  <SettingRow label="Show Typing Indicator" description="Display typing animation while bot is thinking">
+                  <SettingRow label="Show Typing Indicator" description="Display typing animation while bot is thinking" controlClassName="sm:w-fit">
                     <Toggle
                       checked={settings.showTypingIndicator}
                       onChange={(checked) => updateSetting('showTypingIndicator', checked)}
                     />
                   </SettingRow>
 
-                  <SettingRow label="Collect User Info" description="Ask for name and email before starting chat">
+                  <SettingRow label="Collect User Info" description="Ask for name and email before starting chat" controlClassName="sm:w-fit">
                     <Toggle
                       checked={settings.collectUserInfo}
                       onChange={(checked) => updateSetting('collectUserInfo', checked)}
+                    />
+                  </SettingRow>
+
+                  <SettingRow label="Launcher Button Text" description="Label shown on the floating chat button">
+                    <Input
+                      value={settings.buttonText}
+                      onChange={(e) => updateSetting('buttonText', e.target.value)}
+                      placeholder="Chat with us"
+                      maxLength={50}
+                    />
+                  </SettingRow>
+
+                  <SettingRow
+  label="Max Input Characters"
+  description="Maximum characters users can type in a single message"
+>
+  <div className="flex flex-col w-full">
+    <Input
+      type="number"
+      value={String(settings.inputMaxChars)}
+      onChange={(e) => {
+        const raw = Number(e.target.value);
+        updateSetting("inputMaxChars", raw);
+
+        setInputMaxCharsError(
+          raw >= 50 && raw <= 10000
+            ? ""
+            : "Input size must be between 50 and 10000 characters."
+        );
+      }}
+      min={50}
+      max={10000}
+    />
+
+    {inputMaxCharsError && (
+      <p className="mt-1 text-xs text-red-500">
+        {inputMaxCharsError}
+      </p>
+    )}
+  </div>
+</SettingRow>
+
+                  <SettingRow label="Show Branding" description='Display "Powered by" text in the widget' controlClassName="sm:w-fit">
+                    <Toggle
+                      checked={settings.showBranding}
+                      onChange={(checked) => updateSetting('showBranding', checked)}
                     />
                   </SettingRow>
                 </CardContent>
@@ -388,20 +523,13 @@ export default function CustomizationPage({ params }: CustomizationPageProps) {
 
         {/* Preview Panel */}
         <div className="w-[480px] flex-shrink-0 hidden lg:block">
-          <div className="sticky top-0">
-            <h3 className="text-sm font-medium text-[#1D1D1F] mb-3">Live Preview</h3>
-            <WidgetPreview
-              primaryColor={settings.primaryColor}
-              position={settings.position}
-              size={settings.size}
-              borderRadius={settings.borderRadius}
-              fontFamily={settings.fontFamily}
-              greeting={settings.greeting}
-              welcomeMessage={settings.welcomeMessage}
-              placeholder={settings.placeholder}
-              botName={settings.botName}
-              avatarUrl={settings.avatarUrl}
-              autoOpen={settings.autoOpen}
+          <div className="h-full flex flex-col justify-center">
+            <WidgetChatSurface
+              chatbotId={chatbotId}
+              sessionId={`customization-preview-${chatbotId}`}
+              settings={settings}
+              apiBaseUrl={widgetApiBaseUrl}
+              preview
             />
           </div>
         </div>

@@ -1,85 +1,128 @@
 """
-LangGraph conditional edge functions for routing between nodes.
-These functions determine which node to execute next based on the current state.
+Graph edge routing functions for the V2 RAG pipeline.
+
+Routing decisions are based on reasoning_mode and confidence_score,
+not on intent classification.
+
+Legacy functions (route_by_intent, validate_plan_route, should_rerank) are
+kept at the bottom for reference but are not used by the new graph.
 """
 from typing import Literal
-from graph.state import RAGState, IntentType
+from langgraph.graph import END
+from graph.state import RAGState
 from config.logging_config import get_logger
 
 logger = get_logger(__name__)
 
 
-# =============================================================================
-# CONDITIONAL EDGE FUNCTIONS
-# =============================================================================
+# ---------------------------------------------------------------------------
+# After the sequential start (query_rewriter -> session_loader -> reasoning_router)
+# ---------------------------------------------------------------------------
 
-def route_by_intent(state: RAGState) -> Literal["document_search", "web_search", "ocr", "url_process", "plan_generator", "end"]:
-    """Route to appropriate agent based on classified intent."""
-    intent = state.get("intent", "")
-    confidence = state.get("intent_confidence", 0.0)
+def route_by_reasoning_mode(
+    state: RAGState,
+) -> Literal["multi_step_planner", "hybrid_retrieval"]:
+    """Route to planning or direct retrieval based on reasoning_mode."""
+    mode = state.get("reasoning_mode", "fast_rag")
+    if mode in ("multi_step", "research"):
+        return "multi_step_planner"
+    return "hybrid_retrieval"
 
-    logger.info(f"Routing by intent: {intent} (confidence: {confidence})")
 
-    if confidence < 0.5:
-        logger.info("Low confidence, routing to plan generator")
-        return "plan_generator"
+# ---------------------------------------------------------------------------
+# After reranker
+# ---------------------------------------------------------------------------
 
-    if intent == IntentType.DOCUMENT_SEARCH:
-        return "document_search"
-    elif intent == IntentType.WEB_SEARCH:
+def route_after_reranker(
+    state: RAGState,
+) -> Literal["research_gap_analyzer", "confidence_evaluator"]:
+    """Research mode checks for gaps; all other modes go to confidence eval."""
+    if state.get("reasoning_mode") == "research":
+        return "research_gap_analyzer"
+    return "confidence_evaluator"
+
+
+# ---------------------------------------------------------------------------
+# After research_gap_analyzer
+# ---------------------------------------------------------------------------
+
+def route_after_gap_analysis(
+    state: RAGState,
+) -> Literal["hybrid_retrieval", "confidence_evaluator"]:
+    """If gaps found, trigger a second retrieval pass; otherwise proceed."""
+    if state.get("reasoning_mode") == "research" and state.get("research_gaps"):
+        return "hybrid_retrieval"
+    return "confidence_evaluator"
+
+
+# ---------------------------------------------------------------------------
+# After confidence_evaluator
+# ---------------------------------------------------------------------------
+
+def route_by_confidence(
+    state: RAGState,
+) -> Literal["web_search", "context_compressor"]:
+    """Low confidence → web fallback; high confidence → compress and generate."""
+    if state.get("answer_source") == "web" or state.get("web_fallback_triggered"):
         return "web_search"
-    elif intent == IntentType.OCR:
-        return "ocr"
-    elif intent == IntentType.URL_PROCESS:
-        return "url_process"
-    elif intent == IntentType.COMPLEX:
-        return "plan_generator"
-    else:
-        return "document_search"
+    return "context_compressor"
 
 
-def validate_plan_route(state: RAGState) -> Literal["execute_plan", "regenerate_plan", "end"]:
-    """Route after plan validation."""
-    is_valid = state.get("plan_validated", False)
+# ---------------------------------------------------------------------------
+# After context_compressor
+# ---------------------------------------------------------------------------
 
-    logger.info(f"Plan validation route: valid={is_valid}")
-
-    if is_valid:
-        return "execute_plan"
-    else:
-        retry_count = state.get("retry_count", 0)
-        if retry_count < 2:
-            state["retry_count"] = retry_count + 1
-            return "regenerate_plan"
-        else:
-            logger.warning("Max retries reached, using fallback")
-            return "execute_plan"
+def route_after_compression(
+    state: RAGState,
+) -> Literal["draft_generator", "response_synthesis"]:
+    """Expert Review mode routes through draft → critique → improve."""
+    if state.get("reasoning_mode") == "expert_review":
+        return "draft_generator"
+    return "response_synthesis"
 
 
-def should_rerank(state: RAGState) -> Literal["reranker", "response_synthesis"]:
-    """Determine if reranking is needed."""
-    documents_count = len(state.get("documents", []))
-    web_results_count = len(state.get("web_results", []))
-    ocr_count = len(state.get("ocr_results", []))
-    url_count = len(state.get("url_results", []))
+# ---------------------------------------------------------------------------
+# After answer_improver (Expert Review mode)
+# ---------------------------------------------------------------------------
 
-    total_results = documents_count + web_results_count + ocr_count + url_count
+def route_after_improvement(state: RAGState) -> str:
+    """If final_response already set by answer_improver, end; else synthesize."""
+    if state.get("final_response"):
+        return END
+    return "response_synthesis"
 
-    if total_results > 5 or (documents_count > 0 and web_results_count > 0):
-        return "reranker"
-    else:
+
+# ---------------------------------------------------------------------------
+# After response_synthesis
+# ---------------------------------------------------------------------------
+
+def check_final_response(state: RAGState) -> str:
+    """End if we have a response; avoid infinite retry on error."""
+    if state.get("final_response"):
+        return END
+    if state.get("error"):
+        return END
+    return "response_synthesis"
+
+
+# ---------------------------------------------------------------------------
+# After response_synthesis (V2: groundedness gate for fast_rag)
+# ---------------------------------------------------------------------------
+
+def route_after_synthesis(state: RAGState) -> str:
+    """fast_rag runs the groundedness gate; all other modes end immediately.
+
+    (expert_review ends via route_after_improvement; multi_step/research end here.)
+    """
+    if state.get("error"):
+        return END
+    if state.get("reasoning_mode") == "fast_rag":
+        return "groundedness_check"
+    return END
+
+
+def route_after_groundedness(state: RAGState) -> str:
+    """Regenerate response_synthesis if the groundedness gate asked for a retry."""
+    if state.get("should_retry"):
         return "response_synthesis"
-
-
-def check_final_response(state: RAGState) -> Literal["end", "reranker"]:
-    """Check if we have a final response or need to rerank."""
-    final_response = state.get("final_response")
-
-    if final_response:
-        return "end"
-    else:
-        reranked = state.get("reranked_results")
-        if not reranked:
-            return "reranker"
-        else:
-            return "end"
+    return END

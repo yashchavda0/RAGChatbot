@@ -212,6 +212,26 @@ export function WidgetPreview({ config = defaultConfig, onConfigChange }: Widget
           </div>
         )}
 
+        {/* Call-out tooltip when closed */}
+        {!isOpen && (
+          <div
+            className={cn(
+              'absolute bottom-full mb-2 z-20',
+              config.position === 'bottom-right' ? 'right-0' : 'left-0'
+            )}
+          >
+            <div
+              className="px-4 py-2 bg-white rounded-xl shadow-apple text-sm animate-fade-in whitespace-nowrap"
+              style={{ animationDelay: '500ms' }}
+            >
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4" style={{ color: config.primaryColor }} />
+                <span className="text-[#1D1D1F]">{config.buttonText}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Toggle Button */}
         <button
           onClick={() => setIsOpen(!isOpen)}
@@ -233,21 +253,6 @@ export function WidgetPreview({ config = defaultConfig, onConfigChange }: Widget
           />
         )}
       </div>
-
-      {/* Info overlay when closed */}
-      {!isOpen && (
-        <div className="absolute bottom-20 right-20 z-10">
-          <div
-            className="px-4 py-2 bg-white rounded-xl shadow-apple text-sm animate-fade-in"
-            style={{ animationDelay: '500ms' }}
-          >
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4" style={{ color: config.primaryColor }} />
-              <span className="text-[#1D1D1F]">{config.buttonText}</span>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

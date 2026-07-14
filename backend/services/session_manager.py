@@ -27,6 +27,7 @@ class SessionManagerService:
         self,
         user_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        session_id: Optional[str] = None,
     ) -> str:
         """
         Create a new session.
@@ -34,11 +35,12 @@ class SessionManagerService:
         Args:
             user_id: Optional user identifier
             metadata: Optional session metadata
+            session_id: Optional session ID (auto-generated if not provided)
 
         Returns:
             Session ID
         """
-        session_id = str(uuid.uuid4())
+        session_id = session_id or str(uuid.uuid4())
 
         try:
             with self.postgres.get_session() as db:
@@ -113,6 +115,7 @@ class SessionManagerService:
     async def add_message(
         self,
         session_id: str,
+        chatbot_id: str,
         role: str,
         content: str,
         sources: Optional[List[Dict[str, Any]]] = None,
@@ -124,6 +127,7 @@ class SessionManagerService:
 
         Args:
             session_id: Session identifier
+            chatbot_id: Chatbot identifier
             role: Message role (user, assistant, system)
             content: Message content
             sources: Optional source citations
@@ -146,8 +150,14 @@ class SessionManagerService:
                     raise ValueError(f"Session {session_id} not found")
 
                 # Add message
+                # content column is NOT NULL; coerce None to empty string so a
+                # caller passing None (e.g. an unset final_response) can't trip
+                # the constraint.
+                if content is None:
+                    content = ""
                 message = ConversationMessage(
                     message_id=message_id,
+                    chatbot_id=chatbot_id,
                     session_id=session_id,
                     role=role,
                     content=content,

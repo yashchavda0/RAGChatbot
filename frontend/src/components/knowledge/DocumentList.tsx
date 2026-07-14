@@ -14,6 +14,10 @@ export interface Document {
   uploadDate: string;
   chunks?: number;
   error?: string;
+  sourceType?: string;
+  sourceUrl?: string;
+  parentDocumentId?: string;
+  childDocumentCount?: number;
 }
 
 interface DocumentListProps {
@@ -53,6 +57,13 @@ const statusConfig = {
 };
 
 const getFileIcon = (type: string) => {
+  if (type === 'website' || type === 'crawled_page') {
+    return (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+      </svg>
+    );
+  }
   if (type.includes('pdf')) {
     return (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -143,10 +154,11 @@ export function DocumentList({ documents, isLoading, onDelete, onRetry }: Docume
               <div className="flex items-center gap-3 mt-0.5">
                 <span className="text-[12px] text-[#6E6E73]">{formatFileSize(doc.size)}</span>
                 <span className="text-[12px] text-[#6E6E73]">{doc.uploadDate}</span>
+                {doc.childDocumentCount !== undefined && doc.childDocumentCount > 0 && (
+                  <span className="text-[12px] text-[#6E6E73]">{doc.childDocumentCount} pages</span>
+                )}
                 {doc.chunks !== undefined && (
-                  <>
-                    <span className="text-[12px] text-[#6E6E73]">{doc.chunks} chunks</span>
-                  </>
+                  <span className="text-[12px] text-[#6E6E73]">{doc.chunks} chunks</span>
                 )}
               </div>
             </div>

@@ -37,10 +37,7 @@ export const AgentList = memo(function AgentList({
             className={cn(
               'w-full text-left px-4 py-3 rounded-xl transition-all duration-200 group',
               'hover:bg-muted/50',
-              isSelected && [
-                'bg-primary text-primary-foreground shadow-sm',
-                'hover:bg-primary/90',
-              ]
+              isSelected && 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90'
             )}
             style={{
               animationDelay: `${index * 30}ms`,

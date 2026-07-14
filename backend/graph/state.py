@@ -2,17 +2,28 @@
 LangGraph state definitions for the RAG chatbot system.
 Defines the state structure that flows through the agent graph.
 """
+
 from typing import TypedDict, List, Dict, Any, Optional, Annotated
 from langgraph.graph import add_messages
 
 
 class IntentType:
-    """Intent types for query classification."""
+    """Intent types for query classification (kept for backward compatibility)."""
+
     DOCUMENT_SEARCH = "document_search"
     WEB_SEARCH = "web_search"
     OCR = "ocr"
     URL_PROCESS = "url_process"
     COMPLEX = "complex"
+
+
+class ReasoningMode:
+    """Reasoning mode constants for the enhanced pipeline."""
+
+    FAST_RAG = "fast_rag"
+    MULTI_STEP = "multi_step"
+    RESEARCH = "research"
+    EXPERT_REVIEW = "expert_review"
 
 
 class RAGState(TypedDict):
@@ -22,7 +33,9 @@ class RAGState(TypedDict):
     """
 
     # Core query and messages
-    messages: Annotated[List[Dict[str, Any]], add_messages]  # LangGraph message annotation
+    messages: Annotated[
+        List[Dict[str, Any]], add_messages
+    ]  # LangGraph message annotation
     query: str  # Original user query
 
     # Chatbot context (multi-tenant)
@@ -30,51 +43,113 @@ class RAGState(TypedDict):
     system_prompt: str  # Custom system prompt for this chatbot
     has_knowledge_base: bool  # Whether chatbot has indexed documents
 
-    # Intent classification
-    intent: str  # Classified intent (DOCUMENT_SEARCH, WEB_SEARCH, OCR, URL_PROCESS, COMPLEX)
-    intent_confidence: float  # Confidence score for intent classification
+    # --- V2 Pipeline fields ---
 
-    # Plan (for complex queries)
-    plan: Optional[Dict[str, Any]]  # Generated plan for complex queries
-    plan_validated: bool  # Whether plan has been validated
-    plan_validation_notes: Optional[str]  # Validation notes
+    # Query rewriting
+    original_query: str  # Preserved original query before rewriting
+    query_rewritten: str  # Retrieval-optimized version of the query
 
-    # Document search results
-    documents: List[Dict[str, Any]]  # Retrieved documents from Milvus
+    # Reasoning mode (loaded from chatbot settings by session_loader)
+    reasoning_mode: str  # fast_rag | multi_step | research | expert_review
+
+    # Session context (loaded by session_loader)
+    session_context: Dict[str, Any]  # {summary, recent_queries, recent_sources}
+
+    # Conversation history (loaded by session_loader from Postgres)
+    conversation_history: List[Dict[str, Any]]  # [{role, content}, ...] prior turns
+
+    # Hybrid retrieval candidates (top 30 before reranking)
+    retrieval_candidates: List[Dict[str, Any]]
+    retrieval_latency_ms: float
+
+    # Reranker outputs
+    reranker_scores: List[float]
+    reranker_top_score: float
+
+    # Confidence evaluation
+    confidence_score: float
+    answer_source: str  # "documents" | "web"
+    web_fallback_triggered: bool
+
+    # Context compression (top 5 compressed chunks)
+    compressed_context: List[Dict[str, Any]]
+
+    # Multi-step / Research mode
+    plan_steps: List[Dict[str, Any]]  # [{step_id, sub_query, purpose}]
+    step_results: List[Dict[str, Any]]  # [{step_id, documents, score}]
+    research_gaps: List[str]
+    verified_findings: List[Dict[str, Any]]
+
+    # Expert Review mode
+    draft_answer: str
+    critique: str
+
+    # Cache tracking
+    cache_hits: Dict[str, bool]  # {embedding, retrieval, response, session}
+
+    # Timing
+    generation_latency_ms: float
+
+    # Observability
+    langsmith_trace_id: str
+
+    # --- Legacy / kept for backward compatibility ---
+
+    # Intent classification (unused in v2 pipeline, kept for old agents)
+    intent: str
+    intent_confidence: float
+
+    # Plan (for complex queries, legacy)
+    plan: Optional[Dict[str, Any]]
+    plan_validated: bool
+    plan_validation_notes: Optional[str]
+
+    # Document search results (populated by hybrid_retrieval, legacy field name)
+    documents: List[Dict[str, Any]]
+    low_relevance: bool
+    max_document_score: float
 
     # Web search results
-    web_results: List[Dict[str, Any]]  # Results from Tavily web search
+    web_results: List[Dict[str, Any]]
 
     # OCR results
-    ocr_results: List[Dict[str, Any]]  # Extracted text from images
+    ocr_results: List[Dict[str, Any]]
 
     # URL processing results
-    url_results: List[Dict[str, Any]]  # Processed URL content
+    url_results: List[Dict[str, Any]]
 
     # Reranked results
-    reranked_results: List[Dict[str, Any]]  # Results after reranking
+    reranked_results: List[Dict[str, Any]]  # Results after reranking (top 5)
+
+    # Groundedness gate (fast_rag): embedding-based answer-vs-source relevancy
+    groundedness_score: float
+    should_retry: bool  # True → regenerate response_synthesis (bounded by retry_count)
 
     # Final response
-    final_response: Optional[str]  # Final synthesized response
-    response_sources: List[Dict[str, Any]]  # Sources cited in response
-    from_web_search_only: bool  # True if response is from web search only (no KB)
+    final_response: Optional[str]
+    fallback_reason: Optional[str]
+    suggested_questions: List[str]
+    response_sources: List[Dict[str, Any]]
+    from_web_search_only: bool  # True if response is from web search only
+    token_usage: Dict[str, Any]
 
     # Agent execution tracking
-    agent_executions: List[Dict[str, Any]]  # Track all agent executions
-    current_agent: Optional[str]  # Currently executing agent
+    agent_executions: List[Dict[str, Any]]
+    current_agent: Optional[str]
 
     # Session and metadata
-    session_id: str  # Session identifier
-    request_id: str  # Request identifier for tracking
-    metadata: Dict[str, Any]  # Additional metadata
+    session_id: str
+    request_id: str
+    metadata: Dict[str, Any]
 
     # Error handling
-    error: Optional[str]  # Error message if something went wrong
-    retry_count: int  # Number of retries attempted
+    error: Optional[str]
+    retry_count: int
 
 
 class AgentExecution(TypedDict):
     """Record of an agent execution."""
+
     agent_id: str
     agent_name: str
     status: str
@@ -96,24 +171,56 @@ def create_initial_state(
 ) -> RAGState:
     """Create initial state for a new query."""
     return {
+        # Core
         "messages": [],
         "query": query,
         "chatbot_id": chatbot_id,
         "system_prompt": system_prompt,
         "has_knowledge_base": has_knowledge_base,
+        # V2 pipeline fields
+        "original_query": query,
+        "query_rewritten": "",
+        "reasoning_mode": "fast_rag",
+        "session_context": {},
+        "conversation_history": [],
+        "retrieval_candidates": [],
+        "retrieval_latency_ms": 0.0,
+        "reranker_scores": [],
+        "reranker_top_score": 0.0,
+        "confidence_score": 0.0,
+        "answer_source": "documents",
+        "web_fallback_triggered": False,
+        "compressed_context": [],
+        "plan_steps": [],
+        "step_results": [],
+        "research_gaps": [],
+        "verified_findings": [],
+        "draft_answer": "",
+        "critique": "",
+        "cache_hits": {},
+        "generation_latency_ms": 0.0,
+        "langsmith_trace_id": "",
+        # Legacy fields
         "intent": "",
         "intent_confidence": 0.0,
         "plan": None,
         "plan_validated": False,
         "plan_validation_notes": None,
         "documents": [],
+        "low_relevance": False,
+        "max_document_score": 0.0,
         "web_results": [],
         "ocr_results": [],
         "url_results": [],
         "reranked_results": [],
+        "groundedness_score": 0.0,
+        "should_retry": False,
         "final_response": None,
+        "fallback_reason": None,
+        "suggested_questions": [],
         "response_sources": [],
         "from_web_search_only": False,
+        "token_usage": {},
         "agent_executions": [],
         "current_agent": None,
         "session_id": session_id,

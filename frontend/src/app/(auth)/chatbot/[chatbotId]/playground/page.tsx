@@ -1,162 +1,46 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { use } from 'react';
 import {
   PanelLeftClose,
   PanelLeftOpen,
   Trash2,
   Download,
-  Settings,
   Bot,
+  Plus,
 } from 'lucide-react';
 import { MessageBubble } from '@/components/chat/MessageBubble';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { DebugPanel } from '@/components/playground/DebugPanel';
 import { ChatMessage, AgentExecution, Source } from '@/types';
-import { cn, formatTimestamp } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import { useChat } from '@/hooks/useChat';
 
-// Mock data for demonstration
-const mockAgentExecutions: AgentExecution[] = [
-  {
-    agent_id: 'intent_classifier',
-    agent_name: 'Intent Classifier',
-    status: 'completed',
-    started_at: new Date(Date.now() - 1500).toISOString(),
-    completed_at: new Date(Date.now() - 1450).toISOString(),
-    execution_time_ms: 50,
-  },
-  {
-    agent_id: 'document_search',
-    agent_name: 'Document Search',
-    status: 'completed',
-    started_at: new Date(Date.now() - 1400).toISOString(),
-    completed_at: new Date(Date.now() - 800).toISOString(),
-    execution_time_ms: 600,
-    output_data: { documents_found: 3 },
-  },
-  {
-    agent_id: 'reranker',
-    agent_name: 'Reranker',
-    status: 'completed',
-    started_at: new Date(Date.now() - 750).toISOString(),
-    completed_at: new Date(Date.now() - 600).toISOString(),
-    execution_time_ms: 150,
-  },
-  {
-    agent_id: 'response_synthesis',
-    agent_name: 'Response Synthesis',
-    status: 'completed',
-    started_at: new Date(Date.now() - 550).toISOString(),
-    completed_at: new Date(Date.now() - 100).toISOString(),
-    execution_time_ms: 450,
-  },
-];
+const SESSION_KEY = (chatbotId: string) => `playground_session_${chatbotId}`;
 
-const mockSources: Source[] = [
-  {
-    type: 'document',
-    filename: 'product_manual.pdf',
-    chunk_id: 'chunk_123',
-    snippet: 'The product supports multiple integration methods including REST API and webhooks...',
-  },
-  {
-    type: 'document',
-    filename: 'api_docs.md',
-    chunk_id: 'chunk_456',
-    snippet: 'Authentication is handled via Bearer tokens with automatic refresh...',
-  },
-  {
-    type: 'web',
-    url: 'https://docs.example.com/integration',
-    title: 'Integration Guide',
-    snippet: 'Step-by-step guide for setting up the integration with your existing systems...',
-  },
-];
+function getOrCreateSessionId(chatbotId: string): string {
+  if (typeof window === 'undefined') return `playground-${Date.now()}`;
+  const stored = localStorage.getItem(SESSION_KEY(chatbotId));
+  if (stored) return stored;
+  const newId = `playground-${Date.now()}`;
+  localStorage.setItem(SESSION_KEY(chatbotId), newId);
+  return newId;
+}
 
-const mockResponses = [
-  {
-    intent: 'DOCUMENT_SEARCH',
-    response: `Based on the documentation, here are the key integration methods available:
-
-1. **REST API** - The primary method for programmatic access
-   - Supports JSON request/response format
-   - Includes rate limiting and authentication
-
-2. **Webhooks** - For real-time event notifications
-   - Configurable endpoints
-   - Automatic retry logic for failed deliveries
-
-3. **SDK Libraries** - Available for popular languages
-   - JavaScript/TypeScript
-   - Python
-   - Go
-
-For your specific use case, I recommend starting with the REST API approach, as it provides the most flexibility and is well-documented in the integration guide.
-
-**Sources:**`,
-    sources: mockSources,
-    executions: mockAgentExecutions,
-    tokenUsage: { prompt: 245, completion: 180, total: 425 },
-    responseTime: 1250,
-  },
-  {
-    intent: 'WEB_SEARCH',
-    response: `I found several relevant resources about this topic:
-
-**Key Findings:**
-- The latest update introduced new security features
-- Performance improvements of up to 40% have been reported
-- The community has created extensive tutorials
-
-Would you like me to dive deeper into any of these areas?`,
-    sources: [
-      { type: 'web' as const, url: 'https://example.com/article1', title: 'Latest Security Updates' },
-      { type: 'web' as const, url: 'https://example.com/article2', title: 'Performance Benchmarks' },
-    ],
-    executions: mockAgentExecutions.slice(0, 3),
-    tokenUsage: { prompt: 180, completion: 120, total: 300 },
-    responseTime: 980,
-  },
-  {
-    intent: 'COMPLEX',
-    response: `This is a complex query that requires multiple steps. Let me break down the analysis:
-
-**Phase 1: Understanding the Request**
-I've analyzed your query and identified several key components that need to be addressed.
-
-**Phase 2: Information Gathering**
-I searched through both internal documents and external sources to compile relevant information.
-
-**Phase 3: Synthesis**
-Based on all gathered data, here's my comprehensive response:
-
-The solution involves a multi-step approach that balances efficiency with maintainability. I recommend implementing the core functionality first, then iterating based on user feedback.
-
-**Next Steps:**
-1. Review the technical requirements
-2. Set up the development environment
-3. Implement the MVP
-4. Test and iterate
-
-Let me know if you need more details on any specific aspect!`,
-    sources: mockSources.slice(0, 2),
-    executions: mockAgentExecutions,
-    tokenUsage: { prompt: 380, completion: 290, total: 670 },
-    responseTime: 2100,
-  },
-];
-
-export default function PlaygroundPage({ params }: { params: Promise<{ chatbotId: string }> }) {
-  const { chatbotId } = use(params);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+function PlaygroundContent({ chatbotId, sessionId }: { chatbotId: string; sessionId: string }) {
   const [showDebugPanel, setShowDebugPanel] = useState(true);
-  const [currentIntent, setCurrentIntent] = useState<string | null>(null);
-  const [currentExecutions, setCurrentExecutions] = useState<AgentExecution[]>([]);
-  const [currentSources, setCurrentSources] = useState<Source[]>([]);
-  const [responseTime, setResponseTime] = useState<number | null>(null);
-  const [tokenUsage, setTokenUsage] = useState<{ prompt: number; completion: number; total: number } | null>(null);
+
+  const {
+    messages,
+    agentExecutions,
+    detectedIntent,
+    isLoading,
+    isStreaming,
+    sendMessage,
+    clearMessages,
+    responseTime,
+    tokenUsage,
+  } = useChat(chatbotId, sessionId);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -166,85 +50,52 @@ export default function PlaygroundPage({ params }: { params: Promise<{ chatbotId
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Clear debug state when starting new message
-  const resetDebugState = useCallback(() => {
-    setCurrentIntent(null);
-    setCurrentExecutions([]);
-    setCurrentSources([]);
-    setResponseTime(null);
-    setTokenUsage(null);
-  }, []);
+  // Determine query status based on agent execution
+  const determineQueryStatus = (): 'analyzing' | 'intent' | 'retrieving' | 'processing' | 'generating' | 'completed' => {
+    if (agentExecutions.length === 0) return 'analyzing';
 
-  // Simulate agent execution updates
-  const simulateAgentExecution = useCallback(async (responseIndex: number) => {
-    const mockData = mockResponses[responseIndex % mockResponses.length];
-    const startTime = Date.now();
+    const agentIds = agentExecutions.map(e => e.agent_id);
+    const hasRunningAgent = agentExecutions.some(e => e.status === 'running');
 
-    // Simulate intent detection
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    setCurrentIntent(mockData.intent);
+    // Check which stages have agents
+    const hasIntent = agentIds.includes('intent_classifier');
+    const hasRetrieval = agentIds.some(id => ['document_search', 'web_search', 'ocr', 'url_processing'].includes(id));
+    const hasReranking = agentIds.includes('reranker');
+    const hasSynthesis = agentIds.includes('response_synthesis');
 
-    // Simulate each agent execution
-    for (const exec of mockData.executions) {
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      setCurrentExecutions((prev) => [
-        ...prev,
-        { ...exec, status: 'running' },
-      ]);
+    // Determine current stage based on which agents have run/are running
+    if (hasSynthesis && !hasRunningAgent) return 'completed';
+    if (hasSynthesis || (hasReranking && !agentExecutions.find(e => e.agent_id === 'response_synthesis')?.status)) return 'generating';
+    if (hasReranking) return 'processing';
+    if (hasRetrieval) return 'retrieving';
+    if (hasIntent) return 'intent';
 
-      await new Promise((resolve) => setTimeout(resolve, exec.execution_time_ms || 200));
-      setCurrentExecutions((prev) =>
-        prev.map((e) => (e.agent_id === exec.agent_id ? { ...e, status: 'completed' as const } : e))
-      );
-    }
+    return 'analyzing';
+  };
 
-    // Set final metrics
-    setResponseTime(Date.now() - startTime);
-    setTokenUsage(mockData.tokenUsage);
-    setCurrentSources(mockData.sources);
+  // Get current executing agent
+  const currentExecutingAgent = agentExecutions.find(e => e.status === 'running') || null;
 
-    return mockData;
-  }, []);
+  // Get current debug state - real-time from agent executions during streaming
+  const currentSources: Source[] = isStreaming 
+    ? [] // Don't show sources until complete
+    : ([...messages].reverse().find(m => m.role === 'assistant')?.sources || []);
+  
+  const queryStatus = determineQueryStatus();
 
   const handleSendMessage = async (content: string) => {
-    resetDebugState();
-
-    // Add user message
-    const userMessage: ChatMessage = {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      content,
-      timestamp: new Date(),
-    };
-    setMessages((prev) => [...prev, userMessage]);
-    setIsLoading(true);
-
-    // Select a random response pattern based on query
-    const responseIndex = content.toLowerCase().includes('complex')
-      ? 2
-      : content.toLowerCase().includes('web') || content.toLowerCase().includes('search')
-      ? 1
-      : 0;
-
-    // Simulate execution and get response
-    const mockResponse = await simulateAgentExecution(responseIndex);
-
-    // Add assistant message
-    const assistantMessage: ChatMessage = {
-      id: `assistant-${Date.now()}`,
-      role: 'assistant',
-      content: mockResponse.response,
-      timestamp: new Date(),
-      sources: mockResponse.sources,
-      agent_executions: mockResponse.executions,
-    };
-    setMessages((prev) => [...prev, assistantMessage]);
-    setIsLoading(false);
+    await sendMessage(content);
   };
 
   const handleClearConversation = () => {
-    setMessages([]);
-    resetDebugState();
+    clearMessages();
+  };
+
+  const handleNewChat = () => {
+    clearMessages();
+    const newId = `playground-${Date.now()}`;
+    localStorage.setItem(SESSION_KEY(chatbotId), newId);
+    window.location.reload();
   };
 
   const handleExportConversation = () => {
@@ -269,7 +120,7 @@ export default function PlaygroundPage({ params }: { params: Promise<{ chatbotId
   };
 
   return (
-    <div className="h-[calc(100vh-120px)] flex rounded-2xl overflow-hidden border border-black/[0.06] bg-white shadow-apple">
+    <div className="h-full flex rounded-2xl overflow-hidden border border-black/[0.06] bg-white shadow-apple">
       {/* Chat Section */}
       <div className={cn('flex flex-col transition-all duration-300', showDebugPanel ? 'w-1/2' : 'w-full')}>
         {/* Options Bar */}
@@ -285,6 +136,14 @@ export default function PlaygroundPage({ params }: { params: Promise<{ chatbotId
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleNewChat}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#5B5EFF] hover:bg-[#5B5EFF]/10 rounded-lg transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">New Chat</span>
+            </button>
+
             <button
               onClick={handleClearConversation}
               disabled={messages.length === 0}
@@ -358,11 +217,17 @@ export default function PlaygroundPage({ params }: { params: Promise<{ chatbotId
           ) : (
             <>
               {messages.map((message) => (
-                <MessageBubble key={message.id} message={message} showSources={message.role === 'assistant'} />
+                <MessageBubble
+                  key={message.id}
+                  message={message}
+                  showSources={message.role === 'assistant'}
+                  isLoading={isLoading && message.role === 'assistant' && !message.content}
+                  onSuggestionClick={handleSendMessage}
+                />
               ))}
 
-              {/* Typing indicator */}
-              {isLoading && (
+              {/* Typing indicator - only when no streaming placeholder exists */}
+              {isLoading && !messages.some(m => m.role === 'assistant' && !m.content) && (
                 <div className="flex gap-3 message-animate">
                   <div className="flex-shrink-0 w-8 h-8 rounded-full bg-white shadow-apple flex items-center justify-center border border-black/[0.04]">
                     <Bot className="w-4 h-4 text-[#5B5EFF]" />
@@ -390,15 +255,24 @@ export default function PlaygroundPage({ params }: { params: Promise<{ chatbotId
       {showDebugPanel && (
         <div className="w-1/2 border-l border-black/[0.06] animate-slide-in-right">
           <DebugPanel
-            intent={currentIntent}
-            executions={currentExecutions}
+            intent={detectedIntent}
+            executions={agentExecutions}
             sources={currentSources}
             responseTime={responseTime}
             tokenUsage={tokenUsage}
-            isStreaming={isLoading}
+            isStreaming={isStreaming}
+            queryStatus={queryStatus}
+            currentExecutingAgent={currentExecutingAgent}
           />
         </div>
       )}
     </div>
   );
+}
+
+export default function PlaygroundPage({ params }: { params: { chatbotId: string } }) {
+  const { chatbotId } = params;
+  const [sessionId] = useState(() => getOrCreateSessionId(chatbotId));
+
+  return <PlaygroundContent key={sessionId} chatbotId={chatbotId} sessionId={sessionId} />;
 }

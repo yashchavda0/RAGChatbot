@@ -2,8 +2,16 @@
 Chat routes for the RAG chatbot API.
 Each chat is associated with a specific chatbot and its knowledge base.
 """
+
 import uuid
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request, HTTPException, Path
+from fastapi import (
+    APIRouter,
+    WebSocket,
+    WebSocketDisconnect,
+    Request,
+    HTTPException,
+    Path,
+)
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 
@@ -21,18 +29,40 @@ logger = get_logger(__name__)
 # Request/Response schemas
 class ChatMessage(BaseModel):
     """User chat message."""
+
     message: str = Field(..., description="User's message")
     session_id: str = Field(default="default", description="Session identifier")
 
 
 class ChatResponse(BaseModel):
     """Chat response from the assistant."""
+
     response: str = Field(..., description="Assistant's response")
-    sources: List[Dict[str, Any]] = Field(default_factory=list, description="Source citations")
+    sources: List[Dict[str, Any]] = Field(
+        default_factory=list, description="Source citations"
+    )
     session_id: str = Field(..., description="Session identifier")
     chatbot_id: str = Field(..., description="Chatbot identifier")
-    from_web_search: bool = Field(default=False, description="Response from web search only")
-    agent_executions: List[Dict[str, Any]] = Field(default_factory=list, description="Agent execution info")
+    from_web_search: bool = Field(
+        default=False, description="Response from web search only"
+    )
+    agent_executions: List[Dict[str, Any]] = Field(
+        default_factory=list, description="Agent execution info"
+    )
+    token_usage: Optional[Dict[str, Any]] = Field(default=None)
+    response_time_ms: Optional[int] = Field(default=None)
+    intent_confidence: Optional[float] = Field(default=None)
+    retrieval_confidence: Optional[float] = Field(default=None)
+    # V2 fields
+    answer_source: str = Field(default="documents", description="'documents' or 'web'")
+    reasoning_mode: str = Field(default="fast_rag", description="Reasoning mode used")
+    retrieval_latency_ms: Optional[float] = Field(default=None)
+    generation_latency_ms: Optional[float] = Field(default=None)
+    cache_hits: Optional[Dict[str, bool]] = Field(default=None)
+    reranker_top_score: Optional[float] = Field(default=None)
+    web_fallback_triggered: bool = Field(default=False)
+    fallback_reason: Optional[str] = Field(default=None)
+    suggested_questions: List[str] = Field(default_factory=list)
 
 
 @router.post("/chat/{chatbot_id}", response_model=ChatResponse)
@@ -49,7 +79,9 @@ async def chat(
     request_id = str(uuid.uuid4())
     set_request_id(request_id)
 
-    logger.info(f"Chat request: chatbot={chatbot_id}, session={chat_message.session_id}")
+    logger.info(
+        f"Chat request: chatbot={chatbot_id}, session={chat_message.session_id}"
+    )
 
     try:
         # Verify chatbot exists and is active
@@ -57,12 +89,14 @@ async def chat(
         chatbot = await chatbot_service.get(chatbot_id)
 
         if not chatbot:
-            raise HTTPException(status_code=404, detail=f"Chatbot {chatbot_id} not found")
+            raise HTTPException(
+                status_code=404, detail=f"Chatbot {chatbot_id} not found"
+            )
 
-        if chatbot.get("status") not in ["active", "training"]:
+        if chatbot.get("status") == "error":
             raise HTTPException(
                 status_code=400,
-                detail=f"Chatbot is not ready. Status: {chatbot.get('status')}"
+                detail=f"Chatbot has errors. Status: {chatbot.get('status')}",
             )
 
         # Ensure session exists
@@ -85,7 +119,7 @@ async def chat(
             has_knowledge_base=has_knowledge,
         )
 
-        response = state.get("final_response", "I couldn't generate a response.")
+        response = state.get("final_response") or "I couldn't generate a response."
         sources = state.get("response_sources", [])
         agent_executions = state.get("agent_executions", [])
         from_web_search = state.get("from_web_search_only", False)
@@ -93,11 +127,13 @@ async def chat(
         # Save to conversation history
         await session_manager.add_message(
             session_id=chat_message.session_id,
+            chatbot_id=chatbot_id,
             role="user",
             content=chat_message.message,
         )
         await session_manager.add_message(
             session_id=chat_message.session_id,
+            chatbot_id=chatbot_id,
             role="assistant",
             content=response,
             sources=sources,
@@ -112,6 +148,20 @@ async def chat(
             chatbot_id=chatbot_id,
             from_web_search=from_web_search,
             agent_executions=agent_executions,
+            token_usage=state.get("token_usage"),
+            response_time_ms=state.get("response_time_ms"),
+            intent_confidence=state.get("intent_confidence"),
+            retrieval_confidence=state.get("reranker_top_score"),
+            # V2 fields
+            answer_source=state.get("answer_source", "documents"),
+            reasoning_mode=state.get("reasoning_mode", "fast_rag"),
+            retrieval_latency_ms=state.get("retrieval_latency_ms"),
+            generation_latency_ms=state.get("generation_latency_ms"),
+            cache_hits=state.get("cache_hits"),
+            reranker_top_score=state.get("reranker_top_score"),
+            web_fallback_triggered=state.get("web_fallback_triggered", False),
+            fallback_reason=state.get("fallback_reason"),
+            suggested_questions=state.get("suggested_questions", []),
         )
 
     except HTTPException:
@@ -183,21 +233,36 @@ async def chat_websocket(
                         final_state = event.get("state")
                         continue
 
-                    if isinstance(event, dict) and "agent_executions" in event:
-                        for agent_exec in event.get("agent_executions", []):
-                            if agent_exec.get("status") in ["running", "completed", "failed"]:
-                                await manager.send_agent_update(
-                                    session_id=session_id,
-                                    request_id=request_id,
-                                    agent_id=agent_exec.get("agent_id", ""),
-                                    agent_name=agent_exec.get("agent_name", ""),
-                                    status=agent_exec.get("status", ""),
-                                    data={
-                                        "input": agent_exec.get("input_data"),
-                                        "output": agent_exec.get("output_data"),
-                                        "error": agent_exec.get("error_message"),
-                                    },
-                                )
+                    # Extract agent_executions from node state events
+                    if isinstance(event, dict):
+                        for node_name, node_state in event.items():
+                            if (
+                                isinstance(node_state, dict)
+                                and "agent_executions" in node_state
+                            ):
+                                # Send updates for all agents in the executions list
+                                for agent_exec in node_state.get(
+                                    "agent_executions", []
+                                ):
+                                    if agent_exec.get("status") in [
+                                        "running",
+                                        "completed",
+                                        "failed",
+                                    ]:
+                                        await manager.send_agent_update(
+                                            session_id=session_id,
+                                            request_id=request_id,
+                                            agent_id=agent_exec.get("agent_id", ""),
+                                            agent_name=agent_exec.get("agent_name", ""),
+                                            status=agent_exec.get("status", ""),
+                                            data={
+                                                "input": agent_exec.get("input_data"),
+                                                "output": agent_exec.get("output_data"),
+                                                "error": agent_exec.get(
+                                                    "error_message"
+                                                ),
+                                            },
+                                        )
 
                 if final_state is None:
                     final_state = await process_query(
@@ -208,43 +273,94 @@ async def chat_websocket(
                         has_knowledge_base=has_knowledge,
                     )
 
-                response = final_state.get("final_response", "")
+                response = (
+                    final_state.get("final_response")
+                    or "I couldn't generate a response."
+                )
                 sources = final_state.get("response_sources", [])
                 from_web_search = final_state.get("from_web_search_only", False)
+                token_usage = final_state.get("token_usage")
+                response_time_ms = final_state.get("response_time_ms")
+                intent_confidence = final_state.get("intent_confidence")
+                retrieval_confidence = final_state.get("reranker_top_score")
+                # V2 fields
+                answer_source = final_state.get("answer_source", "documents")
+                reasoning_mode = final_state.get("reasoning_mode", "fast_rag")
+                retrieval_latency_ms = final_state.get("retrieval_latency_ms")
+                generation_latency_ms = final_state.get("generation_latency_ms")
+                cache_hits = final_state.get("cache_hits")
+                reranker_top_score = final_state.get("reranker_top_score")
+                web_fallback_triggered = final_state.get(
+                    "web_fallback_triggered", False
+                )
+                fallback_reason = final_state.get("fallback_reason")
+                suggested_questions = final_state.get("suggested_questions", [])
 
-                await manager.send_response(
+                # Send response only if connection is still active (CONNECTED state = 1)
+                if websocket.client_state.value == 1:
+                    await manager.send_response(
+                        session_id=session_id,
+                        request_id=request_id,
+                        response=response,
+                        sources=sources,
+                        token_usage=token_usage,
+                        response_time_ms=response_time_ms,
+                        intent_confidence=intent_confidence,
+                        retrieval_confidence=retrieval_confidence,
+                        answer_source=answer_source,
+                        fallback_reason=fallback_reason,
+                        suggested_questions=suggested_questions,
+                    )
+
+                    await manager.broadcast_to_session(
+                        {
+                            "type": "done",
+                            "request_id": request_id,
+                            "session_id": session_id,
+                            "chatbot_id": chatbot_id,
+                            "from_web_search": from_web_search,
+                            "token_usage": token_usage,
+                            "response_time_ms": response_time_ms,
+                            # V2 fields
+                            "answer_source": answer_source,
+                            "reasoning_mode": reasoning_mode,
+                            "retrieval_latency_ms": retrieval_latency_ms,
+                            "generation_latency_ms": generation_latency_ms,
+                            "cache_hits": cache_hits,
+                            "reranker_top_score": reranker_top_score,
+                            "web_fallback_triggered": web_fallback_triggered,
+                            "fallback_reason": fallback_reason,
+                            "suggested_questions": suggested_questions,
+                        },
+                        session_id,
+                    )
+
+                await session_manager.add_message(
                     session_id=session_id,
-                    request_id=request_id,
-                    response=response,
+                    chatbot_id=chatbot_id,
+                    role="user",
+                    content=message,
+                )
+                await session_manager.add_message(
+                    session_id=session_id,
+                    chatbot_id=chatbot_id,
+                    role="assistant",
+                    content=response,
                     sources=sources,
-                )
-
-                await manager.broadcast_to_session(
-                    {
-                        "type": "done",
-                        "request_id": request_id,
-                        "session_id": session_id,
-                        "chatbot_id": chatbot_id,
-                        "from_web_search": from_web_search,
-                    },
-                    session_id,
-                )
-
-                await session_manager.add_message(
-                    session_id=session_id, role="user", content=message
-                )
-                await session_manager.add_message(
-                    session_id=session_id, role="assistant", content=response, sources=sources
                 )
                 await session_manager.update_activity(session_id)
 
             except Exception as e:
                 logger.error(f"Error in WebSocket handler: {e}")
-                await manager.send_error(session_id=session_id, request_id=request_id, error=str(e))
+                await manager.send_error(
+                    session_id=session_id, request_id=request_id, error=str(e)
+                )
 
     except WebSocketDisconnect:
         manager.disconnect(websocket, session_id)
-        logger.info(f"WebSocket disconnected: chatbot={chatbot_id}, session={session_id}")
+        logger.info(
+            f"WebSocket disconnected: chatbot={chatbot_id}, session={session_id}"
+        )
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
         manager.disconnect(websocket, session_id)

@@ -5,7 +5,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { AuthInput } from '@/components/auth/AuthInput';
+import { useAuthStore } from '@/stores/authStore';
 import { cn } from '@/lib/utils';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 // Icons
 const UserIcon = () => (
@@ -198,7 +201,9 @@ const PasswordStrengthIndicator = ({ password }: { password: string }) => {
 
 export default function SignupPage() {
   const router = useRouter();
+  const { login } = useAuthStore();
   const [isLoading, setIsLoading] = React.useState(false);
+  const [apiError, setApiError] = React.useState<string | null>(null);
   const [formData, setFormData] = React.useState<FormData>({
     name: '',
     email: '',
@@ -249,14 +254,51 @@ export default function SignupPage() {
     if (!validateForm()) return;
 
     setIsLoading(true);
+    setApiError(null);
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      // In production, replace with actual registration logic
-      console.log('Signup attempt:', { name: formData.name, email: formData.email });
-      // router.push('/login?registered=true'); // Redirect after successful signup
+      const response = await fetch(`${API_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          full_name: formData.name,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Registration failed. Please try again.');
+      }
+
+      const data = await response.json();
+
+      login(
+        {
+          id: data.user?.id || '',
+          email: formData.email,
+          name: data.user?.full_name || formData.name,
+          avatarUrl: undefined,
+          createdAt: data.user?.created_at || new Date().toISOString(),
+          subscription: {
+            plan: data.user?.subscription_tier || 'free',
+            status: 'active',
+            chatbotsLimit: 1,
+            messagesLimit: 100,
+          },
+        },
+        {
+          accessToken: data.access_token,
+          refreshToken: data.refresh_token,
+          expiresIn: data.expires_in,
+        },
+      );
+
+      router.push('/dashboard');
     } catch (error) {
       console.error('Signup error:', error);
+      setApiError(error instanceof Error ? error.message : 'An unexpected error occurred');
     } finally {
       setIsLoading(false);
     }
@@ -434,6 +476,13 @@ export default function SignupPage() {
               )}
             </Button>
           </form>
+
+          {/* API error message */}
+          {apiError && (
+            <div className="mt-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-[13px] text-red-600">
+              {apiError}
+            </div>
+          )}
 
           {/* Divider */}
           <div className="relative my-6">

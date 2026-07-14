@@ -4,10 +4,11 @@ URL Processing Agent - Execution
 Fetches and processes content from URLs provided by users.
 Extracts text and metadata from web pages for indexing.
 """
+import asyncio
 import re
 import aiohttp
 from typing import Dict, Any, List, Optional
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin
 from bs4 import BeautifulSoup
 from agents.base.base_agent import BaseAgent, register_agent
 from graph.state import RAGState, update_agent_execution
@@ -33,10 +34,16 @@ URL_PATTERN = re.compile(
 # Headers to avoid being blocked
 DEFAULT_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.5",
-    "Accept-Encoding": "gzip, deflate",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
     "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Cache-Control": "max-age=0",
 }
 
 
@@ -82,6 +89,179 @@ def is_valid_url(url: str) -> bool:
         return True
     except Exception:
         return False
+
+
+async def fetch_page_links(
+    url: str,
+    timeout: aiohttp.ClientTimeout = aiohttp.ClientTimeout(total=30),
+) -> List[Dict[str, str]]:
+    """Fetch a page and extract all links with their anchor text."""
+    import ssl
+
+    try:
+        # Create permissive SSL context
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+
+        connector = aiohttp.TCPConnector(ssl=ssl_context)
+
+        async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
+            async with session.get(
+                url,
+                headers=DEFAULT_HEADERS,
+                allow_redirects=True,
+                max_redirects=10,
+            ) as response:
+                if response.status != 200:
+                    logger.warning(f"Failed to fetch {url}: HTTP {response.status}")
+                    return []
+
+                content_type = response.headers.get("Content-Type", "")
+                if not content_type.startswith(("text/html", "application/xhtml")):
+                    return []
+
+                html_content = await response.text()
+                soup = BeautifulSoup(html_content, "lxml")
+
+                links = []
+                for a_tag in soup.find_all("a", href=True):
+                    href = a_tag["href"]
+                    text = a_tag.get_text(strip=True) or href
+                    if href and not href.startswith(("#", "javascript:", "mailto:", "tel:")):
+                        links.append({"href": href, "text": text[:200]})
+
+                return links
+    except Exception as e:
+        logger.warning(f"Error fetching links from {url}: {e}")
+        return []
+
+
+async def fetch_page_metadata(
+    url: str,
+    timeout: aiohttp.ClientTimeout = aiohttp.ClientTimeout(total=15),
+) -> Dict[str, str]:
+    """Fetch only title and meta description from a URL (lightweight)."""
+    import ssl
+
+    try:
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+        connector = aiohttp.TCPConnector(ssl=ssl_context)
+        async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
+            async with session.get(url, headers=DEFAULT_HEADERS, allow_redirects=True, max_redirects=5) as response:
+                if response.status != 200:
+                    return {"url": url, "title": url, "description": ""}
+                content_type = response.headers.get("Content-Type", "")
+                if not content_type.startswith(("text/html", "application/xhtml")):
+                    return {"url": url, "title": url, "description": ""}
+                html = await response.content.read(50000)
+                html_text = html.decode("utf-8", errors="ignore")
+                soup = BeautifulSoup(html_text, "lxml")
+                title = soup.title.get_text(strip=True) if soup.title else url
+                description = ""
+                meta_desc = soup.find("meta", attrs={"name": "description"})
+                if meta_desc and meta_desc.get("content"):
+                    description = meta_desc["content"][:300]
+                return {"url": url, "title": title[:200], "description": description}
+    except Exception:
+        return {"url": url, "title": url, "description": ""}
+
+
+async def crawl_url(
+    start_url: str,
+    max_depth: int = 2,
+    max_links: int = 100,
+    same_domain_only: bool = True,
+    timeout_seconds: int = 60,
+    fetch_metadata: bool = False,
+) -> Dict[str, Any]:
+    """
+    Multi-level crawl to discover links using BFS.
+
+    Args:
+        start_url: Starting URL to crawl
+        max_depth: Maximum depth to follow links (0 = only start page)
+        max_links: Maximum number of links to discover
+        same_domain_only: Only follow links to same domain
+        timeout_seconds: Total crawl timeout
+        fetch_metadata: Fetch title and description for each discovered page
+
+    Returns:
+        Dict with discovered_links, total_discovered, crawl_depth_reached
+    """
+    import time
+
+    start_time = time.time()
+    base_domain = urlparse(start_url).netloc
+    visited = set()
+    discovered = []
+    queue = [(start_url, 0)]
+    max_depth_reached = 0
+
+    while queue and len(discovered) < max_links:
+        if time.time() - start_time > timeout_seconds:
+            logger.warning(f"Crawl timeout reached after {timeout_seconds}s")
+            break
+
+        url, depth = queue.pop(0)
+
+        if url in visited:
+            continue
+        if depth > max_depth:
+            continue
+        if not is_valid_url(url):
+            continue
+
+        visited.add(url)
+        max_depth_reached = max(max_depth_reached, depth)
+
+        page_links = await fetch_page_links(url)
+
+        for link in page_links:
+            if len(discovered) >= max_links:
+                break
+
+            full_url = urljoin(url, link["href"])
+            full_url = full_url.split("#")[0]
+
+            if not full_url.startswith(("http://", "https://")):
+                continue
+
+            link_domain = urlparse(full_url).netloc
+            if same_domain_only and link_domain != base_domain:
+                continue
+
+            if full_url not in visited and full_url not in [d["url"] for d in discovered]:
+                discovered.append({"url": full_url, "text": link["text"]})
+                if depth < max_depth:
+                    queue.append((full_url, depth + 1))
+
+    logger.info(f"Crawl completed: {len(discovered)} links from {len(visited)} pages")
+
+    # Enrich discovered links with page metadata (title, description)
+    if fetch_metadata and discovered:
+        semaphore = asyncio.Semaphore(10)
+
+        async def _fetch_with_semaphore(link_url: str) -> Dict[str, str]:
+            async with semaphore:
+                return await fetch_page_metadata(link_url)
+
+        metadata_results = await asyncio.gather(
+            *[_fetch_with_semaphore(d["url"]) for d in discovered]
+        )
+        for link, meta in zip(discovered, metadata_results):
+            link["title"] = meta.get("title", link["url"])
+            link["description"] = meta.get("description", "")
+
+    return {
+        "source_url": start_url,
+        "discovered_links": discovered,
+        "total_discovered": len(discovered),
+        "pages_visited": len(visited),
+        "crawl_depth_reached": max_depth_reached,
+    }
 
 
 @register_agent(
@@ -148,8 +328,14 @@ class URLProcessingAgent(BaseAgent):
 
             url_results: List[Dict[str, Any]] = []
 
-            # Process each URL
-            async with aiohttp.ClientSession(timeout=self.timeout) as session:
+            # Process each URL with permissive SSL
+            import ssl
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            connector = aiohttp.TCPConnector(ssl=ssl_context)
+
+            async with aiohttp.ClientSession(timeout=self.timeout, connector=connector) as session:
                 for url in unique_urls:
                     try:
                         result = await self._fetch_and_parse(session, url)

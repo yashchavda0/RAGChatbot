@@ -1,6 +1,7 @@
 'use client';
 
-import { use, useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +15,7 @@ import {
   TextArea,
 } from '@/components/settings/SettingsSection';
 import { ModelSelector } from '@/components/settings/ModelSelector';
+import { chatbotApi } from '@/lib/api';
 
 interface GeneralSettings {
   name: string;
@@ -51,31 +53,31 @@ interface AllSettings {
   dangerZone: DangerZoneSettings;
 }
 
-const defaultSettings: AllSettings = {
+const getDefaultSettings = (): AllSettings => ({
   general: {
-    name: 'Customer Support Bot',
-    description: 'AI-powered customer support assistant for your website',
-    websiteUrl: 'https://example.com',
+    name: '',
+    description: '',
+    websiteUrl: '',
     industry: 'technology',
   },
   aiModel: {
     model: 'gemini-pro',
     temperature: 0.7,
     maxTokens: 2048,
-    systemPrompt: 'You are a helpful customer support assistant. Be friendly, concise, and helpful. Always try to provide accurate information and escalate to human support when needed.',
+    systemPrompt: '',
   },
   rateLimit: {
     maxMessagesPerConversation: 100,
     rateLimitPerHour: 50,
   },
   security: {
-    allowedDomains: ['example.com', 'app.example.com'],
-    apiKey: 'sk-bot-a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6',
+    allowedDomains: [],
+    apiKey: '',
   },
   dangerZone: {
     isActive: true,
   },
-};
+});
 
 const industryOptions = [
   { value: 'technology', label: 'Technology' },
@@ -92,17 +94,63 @@ const industryOptions = [
 ];
 
 interface SettingsPageProps {
-  params: Promise<{ chatbotId: string }>;
+  params: { chatbotId: string };
 }
 
 export default function SettingsPage({ params }: SettingsPageProps) {
-  const { chatbotId } = use(params);
-  const [settings, setSettings] = useState<AllSettings>(defaultSettings);
-  const [originalSettings, setOriginalSettings] = useState<AllSettings>(defaultSettings);
+  const { chatbotId } = params;
+  const router = useRouter();
+  const [settings, setSettings] = useState<AllSettings>(getDefaultSettings);
+  const [originalSettings, setOriginalSettings] = useState<AllSettings>(getDefaultSettings);
   const [modifiedSections, setModifiedSections] = useState<Set<string>>(new Set());
   const [savingSections, setSavingSections] = useState<Set<string>>(new Set());
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    async function fetchChatbot() {
+      try {
+        setIsLoading(true);
+        const chatbot = await chatbotApi.get(chatbotId);
+        const s = chatbot.settings || {};
+        const loadedSettings: AllSettings = {
+          ...getDefaultSettings(),
+          general: {
+            name: chatbot.name || '',
+            description: chatbot.description || '',
+            websiteUrl: s.website_url || '',
+            industry: s.industry || 'technology',
+          },
+          aiModel: {
+            model: s.model || 'gemini-pro',
+            temperature: s.temperature ?? 0.7,
+            maxTokens: s.max_tokens ?? 2048,
+            systemPrompt: chatbot.system_prompt || '',
+          },
+          rateLimit: {
+            maxMessagesPerConversation: s.max_messages_per_conversation ?? 100,
+            rateLimitPerHour: s.rate_limit_per_hour ?? 50,
+          },
+          security: {
+            allowedDomains: s.allowed_domains || [],
+            apiKey: s.api_key || '',
+          },
+          dangerZone: {
+            isActive: chatbot.status === 'active',
+          },
+        };
+        setSettings(loadedSettings);
+        setOriginalSettings(loadedSettings);
+      } catch (err) {
+        console.error('Failed to load chatbot settings:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchChatbot();
+  }, [chatbotId]);
 
   const updateSection = useCallback(<K extends keyof AllSettings>(
     section: K,
@@ -121,8 +169,39 @@ export default function SettingsPage({ params }: SettingsPageProps) {
   const handleSaveSection = async (section: keyof AllSettings) => {
     setSavingSections((prev) => new Set(prev).add(section));
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (section === 'general') {
+        await chatbotApi.update(chatbotId, {
+          name: settings.general.name,
+          description: settings.general.description,
+          settings: {
+            website_url: settings.general.websiteUrl,
+            industry: settings.general.industry,
+          },
+        });
+      } else if (section === 'aiModel') {
+        await chatbotApi.update(chatbotId, {
+          system_prompt: settings.aiModel.systemPrompt,
+          settings: {
+            model: settings.aiModel.model,
+            temperature: settings.aiModel.temperature,
+            max_tokens: settings.aiModel.maxTokens,
+          },
+        });
+      } else if (section === 'rateLimit') {
+        await chatbotApi.update(chatbotId, {
+          settings: {
+            max_messages_per_conversation: settings.rateLimit.maxMessagesPerConversation,
+            rate_limit_per_hour: settings.rateLimit.rateLimitPerHour,
+          },
+        });
+      } else if (section === 'security') {
+        await chatbotApi.update(chatbotId, {
+          settings: {
+            allowed_domains: settings.security.allowedDomains,
+            api_key: settings.security.apiKey,
+          },
+        });
+      }
       setOriginalSettings((prev) => ({
         ...prev,
         [section]: settings[section],
@@ -132,7 +211,6 @@ export default function SettingsPage({ params }: SettingsPageProps) {
         next.delete(section);
         return next;
       });
-      // In production: await api.updateSettings(chatbotId, section, settings[section]);
     } catch (error) {
       console.error(`Failed to save ${section} settings:`, error);
     } finally {
@@ -157,7 +235,6 @@ export default function SettingsPage({ params }: SettingsPageProps) {
   };
 
   const handleRegenerateApiKey = async () => {
-    // Simulate API key regeneration
     const newKey = `sk-bot-${Math.random().toString(36).substring(2, 18)}`;
     updateSection('security', { apiKey: newKey });
   };
@@ -165,9 +242,18 @@ export default function SettingsPage({ params }: SettingsPageProps) {
   const handleToggleActive = async () => {
     const action = settings.dangerZone.isActive ? 'Deactivate' : 'Activate';
     if (confirm(`Are you sure you want to ${action.toLowerCase()} this chatbot?`)) {
-      updateSection('dangerZone', { isActive: !settings.dangerZone.isActive });
-      // Auto-save this critical action
-      await handleSaveSection('dangerZone');
+      try {
+        if (!settings.dangerZone.isActive) {
+          await chatbotApi.activate(chatbotId);
+        }
+        updateSection('dangerZone', { isActive: !settings.dangerZone.isActive });
+        setOriginalSettings((prev) => ({
+          ...prev,
+          dangerZone: { isActive: !settings.dangerZone.isActive },
+        }));
+      } catch (error) {
+        console.error('Failed to toggle chatbot status:', error);
+      }
     }
   };
 
@@ -176,9 +262,15 @@ export default function SettingsPage({ params }: SettingsPageProps) {
       alert('Please type the chatbot name exactly to confirm deletion.');
       return;
     }
-    // In production: await api.deleteChatbot(chatbotId);
-    // Then redirect to dashboard
-    alert('Chatbot deleted. Redirecting to dashboard...');
+    setIsDeleting(true);
+    try {
+      await chatbotApi.delete(chatbotId);
+      router.push('/dashboard');
+    } catch (error) {
+      console.error('Failed to delete chatbot:', error);
+      alert('Failed to delete chatbot. Please try again.');
+      setIsDeleting(false);
+    }
   };
 
   const handleAddDomain = () => {
@@ -195,6 +287,33 @@ export default function SettingsPage({ params }: SettingsPageProps) {
       allowedDomains: settings.security.allowedDomains.filter((d) => d !== domain),
     });
   };
+
+  if (isLoading) {
+    return (
+      <div className="h-full flex flex-col animate-pulse">
+        <div className="mb-6">
+          <div className="h-8 bg-[#E5E5EA] rounded w-32 mb-2" />
+          <div className="h-4 bg-[#E5E5EA] rounded w-64" />
+        </div>
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-black/[0.08] p-6">
+            <div className="h-6 bg-[#E5E5EA] rounded w-24 mb-4" />
+            <div className="space-y-4">
+              <div className="h-10 bg-[#E5E5EA] rounded" />
+              <div className="h-10 bg-[#E5E5EA] rounded" />
+            </div>
+          </div>
+          <div className="rounded-2xl border border-black/[0.08] p-6">
+            <div className="h-6 bg-[#E5E5EA] rounded w-24 mb-4" />
+            <div className="space-y-4">
+              <div className="h-10 bg-[#E5E5EA] rounded" />
+              <div className="h-32 bg-[#E5E5EA] rounded" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col">
@@ -517,9 +636,9 @@ export default function SettingsPage({ params }: SettingsPageProps) {
                   variant="destructive"
                   className="flex-1"
                   onClick={handleDeleteChatbot}
-                  disabled={deleteConfirmation !== settings.general.name}
+                  disabled={deleteConfirmation !== settings.general.name || isDeleting}
                 >
-                  Delete Forever
+                  {isDeleting ? 'Deleting...' : 'Delete Forever'}
                 </Button>
               </div>
             </div>

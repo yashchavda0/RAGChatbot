@@ -1,64 +1,75 @@
 // Conversation Types for Conversations History Page
 
 export interface ConversationMessage {
-  id: string;
-  role: 'user' | 'assistant';
+  message_id: string;
+  role: 'user' | 'assistant' | 'system';
   content: string;
-  timestamp: Date;
   sources?: ConversationSource[];
+  agent_executions?: AgentExecution[];
+  timestamp: string;
 }
 
 export interface ConversationSource {
-  id: string;
-  type: 'document' | 'web' | 'ocr';
-  title: string;
-  url?: string;
-  snippet?: string;
+  type: string;
+  document_id?: string;
+  filename?: string;
+  relevance_score?: number;
+  content?: string;
+  source?: string;
+  score?: number;
 }
 
-export interface ConversationUser {
-  identifier: string; // email, IP, or session ID
-  type: 'email' | 'ip' | 'session';
-  userAgent?: string;
-  device?: string;
-  browser?: string;
-  location?: {
-    country?: string;
-    city?: string;
-    timezone?: string;
-  };
+export interface AgentExecution {
+  agent_id: string;
+  agent_name?: string;
+  status: string;
+  duration_ms?: number;
+  input_data?: Record<string, unknown>;
+  output_data?: Record<string, unknown>;
+  error_message?: string;
 }
 
 export interface Conversation {
-  id: string;
-  chatbotId: string;
-  user: ConversationUser;
+  session_id: string;
+  chatbot_id: string;
+  first_message: string;
+  last_message: string;
+  message_count: number;
+  user_messages: number;
+  assistant_messages: number;
+  started_at: string;
+  last_activity: string;
+  duration_seconds?: number;
+}
+
+export interface ConversationDetail {
+  session_id: string;
+  chatbot_id: string;
   messages: ConversationMessage[];
-  status: 'resolved' | 'unresolved' | 'flagged';
-  rating?: number; // 1-5 stars
-  feedback?: string;
-  tags: string[];
-  notes?: string;
-  startedAt: Date;
-  endedAt?: Date;
-  duration?: number; // in seconds
-  messageCount: number;
-  preview: string; // first message preview
+  started_at: string;
+  last_activity: string;
+  message_count: number;
 }
 
 export interface ConversationFilters {
   search: string;
-  status: 'all' | 'unresolved' | 'flagged' | 'resolved' | 'with_feedback';
-  dateRange: {
-    start?: Date;
-    end?: Date;
-  };
-  sortBy: 'newest' | 'oldest' | 'longest' | 'shortest';
+  sortBy: 'newest' | 'oldest';
 }
 
 export interface ConversationPagination {
   page: number;
-  pageSize: number;
+  limit: number;
   total: number;
-  totalPages: number;
+  pages: number;
 }
+
+export interface ConversationListResponse {
+  conversations: Conversation[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    pages: number;
+  };
+}
+

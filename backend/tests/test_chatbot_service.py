@@ -112,3 +112,17 @@ async def test_list_includes_stats_fields(service):
     assert chatbots[0]["document_count"] == 0
     assert chatbots[0]["messages_this_week"] == 1
     assert chatbots[0]["messages_prior_week"] == 0
+
+
+@pytest.mark.asyncio
+async def test_create_stores_icon_in_settings(service):
+    chatbot = await service.create(name="Support Bot", icon="support")
+
+    assert chatbot["settings"]["icon"] == "support"
+
+
+@pytest.mark.asyncio
+async def test_create_without_icon_has_no_icon_key(service):
+    chatbot = await service.create(name="Plain Bot")
+
+    assert "icon" not in chatbot["settings"]

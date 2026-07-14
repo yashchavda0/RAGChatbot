@@ -36,9 +36,9 @@ class PlanGeneratorAgent(BaseAgent):
         )
 
         try:
-            from services.gemini_service import GeminiService
+            from services.llm_service import get_llm_service
 
-            gemini_service = GeminiService()
+            gemini_service = get_llm_service()
 
             # Generate plan using Gemini
             prompt = f"""Generate an execution plan for this complex query.

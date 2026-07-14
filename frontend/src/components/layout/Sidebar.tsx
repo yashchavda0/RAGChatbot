@@ -178,9 +178,9 @@ export function Sidebar({ chatbotId, chatbotName }: SidebarProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed top-0 left-0 h-full z-50 transition-all duration-300',
+          'fixed left-0 top-12 z-50 transition-all duration-300',
           'bg-white/80 backdrop-blur-xl border-r border-white/20',
-          'lg:relative lg:z-auto',
+          'lg:relative lg:z-auto lg:top-0',
           isCollapsed ? 'lg:w-20' : 'lg:w-64',
           isMobileOpen ? 'w-64 translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
@@ -196,7 +196,7 @@ export function Sidebar({ chatbotId, chatbotName }: SidebarProps) {
                   </svg>
                   <span className="text-xs">Back to Dashboard</span>
                 </Link>
-                <h2 className="text-sm font-semibold text-[#1D1D1F] truncate mt-1">{chatbotName}</h2>
+                <h2 className="text-sm font-semibold text-[#1D1D1F] truncate mt-3">{chatbotName}</h2>
               </div>
             )}
             <button

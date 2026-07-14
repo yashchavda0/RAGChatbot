@@ -1,6 +1,5 @@
 'use client';
 
-import { use } from 'react';
 import { MetricsGrid } from '@/components/analytics/MetricsGrid';
 import { ConversationChart } from '@/components/analytics/ConversationChart';
 import { TopQueriesList } from '@/components/analytics/TopQueriesList';
@@ -12,11 +11,11 @@ import { ExportButton } from '@/components/analytics/ExportButton';
 import { useAnalytics } from '@/hooks/useAnalytics';
 
 interface AnalyticsPageProps {
-  params: Promise<{ chatbotId: string }>;
+  params: { chatbotId: string };
 }
 
 export default function AnalyticsPage({ params }: AnalyticsPageProps) {
-  const { chatbotId } = use(params);
+  const { chatbotId } = params;
 
   const {
     metrics,

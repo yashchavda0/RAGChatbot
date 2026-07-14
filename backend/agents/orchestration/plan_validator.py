@@ -118,6 +118,7 @@ class PlanValidatorAgent(BaseAgent):
                 agent_id=self.agent_id,
                 agent_name=self.agent_name,
                 status="failed",
+                input_data={"query": state.get("query", "")},
                 error_message=str(e),
             )
 

@@ -1,96 +1,20 @@
 'use client';
 
-import { use, useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { GlassCard } from '@/components/shared/GlassCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DocumentList, type Document } from '@/components/knowledge/DocumentList';
 import { UrlList, type UrlSource } from '@/components/knowledge/UrlList';
+import { WebsiteCrawlFlow } from '@/components/knowledge/WebsiteCrawlFlow';
 import { cn } from '@/lib/utils';
-
-// Mock data for demonstration
-const mockDocuments: Document[] = [
-  {
-    id: '1',
-    name: 'Product_Documentation_v2.pdf',
-    size: 2458624,
-    type: 'application/pdf',
-    status: 'indexed',
-    uploadDate: 'Mar 25, 2026',
-    chunks: 156,
-  },
-  {
-    id: '2',
-    name: 'User_Manual.docx',
-    size: 1048576,
-    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    status: 'indexed',
-    uploadDate: 'Mar 24, 2026',
-    chunks: 89,
-  },
-  {
-    id: '3',
-    name: 'FAQ_Sheet.txt',
-    size: 52428,
-    type: 'text/plain',
-    status: 'processing',
-    uploadDate: 'Mar 27, 2026',
-  },
-  {
-    id: '4',
-    name: 'API_Reference.pdf',
-    size: 4194304,
-    type: 'application/pdf',
-    status: 'error',
-    uploadDate: 'Mar 23, 2026',
-    error: 'Failed to extract text',
-  },
-  {
-    id: '5',
-    name: 'Troubleshooting_Guide.pdf',
-    size: 1572864,
-    type: 'application/pdf',
-    status: 'indexed',
-    uploadDate: 'Mar 22, 2026',
-    chunks: 72,
-  },
-];
-
-const mockUrls: UrlSource[] = [
-  {
-    id: '1',
-    url: 'https://docs.example.com/getting-started',
-    title: 'Getting Started Guide',
-    status: 'indexed',
-    indexedDate: 'Mar 25, 2026',
-    pages: 12,
-  },
-  {
-    id: '2',
-    url: 'https://help.example.com/faq',
-    title: 'Frequently Asked Questions',
-    status: 'indexed',
-    indexedDate: 'Mar 24, 2026',
-    pages: 8,
-  },
-  {
-    id: '3',
-    url: 'https://blog.example.com/best-practices',
-    title: 'Best Practices Blog',
-    status: 'crawling',
-    indexedDate: 'Mar 27, 2026',
-  },
-  {
-    id: '4',
-    url: 'https://api.example.com/docs',
-    title: 'API Documentation',
-    status: 'error',
-    indexedDate: 'Mar 23, 2026',
-    error: 'Connection timeout',
-  },
-];
+import { documentApi } from '@/lib/api';
 
 type TabType = 'documents' | 'urls' | 'text';
+
+interface KnowledgeBasePageProps {
+  params: { chatbotId: string };
+}
 
 interface KnowledgeBaseStats {
   totalDocuments: number;
@@ -98,12 +22,25 @@ interface KnowledgeBaseStats {
   lastUpdated: string;
 }
 
-export default function KnowledgeBasePage() {
+const getFileType = (filename: string): string => {
+  const ext = filename.split('.').pop()?.toLowerCase();
+  const typeMap: Record<string, string> = {
+    'pdf': 'application/pdf',
+    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'doc': 'application/msword',
+    'txt': 'text/plain',
+  };
+  return typeMap[ext || ''] || 'application/octet-stream';
+};
+
+export default function KnowledgeBasePage({ params }: KnowledgeBasePageProps) {
+  const { chatbotId } = params;
   const [activeTab, setActiveTab] = useState<TabType>('documents');
-  const [documents, setDocuments] = useState<Document[]>(mockDocuments);
-  const [urls, setUrls] = useState<UrlSource[]>(mockUrls);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [urls, setUrls] = useState<UrlSource[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [newUrl, setNewUrl] = useState('');
   const [isAddingUrl, setIsAddingUrl] = useState(false);
   const [textContent, setTextContent] = useState('');
@@ -111,10 +48,95 @@ export default function KnowledgeBasePage() {
   const [isSavingText, setIsSavingText] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Fetch documents
+  const fetchDocuments = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const response = await documentApi.list(chatbotId);
+      const mappedDocs = response.documents.map((doc: any) => ({
+        id: doc.id,
+        name: doc.filename,
+        size: doc.file_size,
+        type: getFileType(doc.filename),
+        status: doc.status === 'completed' ? 'indexed' as const :
+                doc.status === 'processing' ? 'processing' as const :
+                'error' as const,
+        uploadDate: new Date(doc.created_at).toLocaleDateString(),
+        chunks: doc.chunks_count,
+        error: doc.error_message,
+        sourceType: doc.source_type,
+      }));
+
+      // Separate documents and URLs using source_type from backend
+      const docList = mappedDocs.filter((d: any) => d.sourceType !== 'url' && d.sourceType !== 'website');
+      const urlList = mappedDocs
+        .filter((d: any) => d.sourceType === 'url' || d.sourceType === 'website')
+        .map((d: any) => ({
+          id: d.id,
+          url: d.name,
+          title: d.name,
+          status: d.status,
+          indexedDate: d.uploadDate,
+        }));
+
+      setDocuments(docList);
+      setUrls(urlList);
+    } catch (err) {
+      console.error('Failed to fetch documents:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [chatbotId]);
+
+  // Fetch documents on mount
+  useEffect(() => {
+    fetchDocuments();
+  }, [fetchDocuments]);
+
+  // Poll for processing status updates
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const processingDocs = documents.filter(d => d.status === 'processing');
+      if (processingDocs.length > 0) {
+        try {
+          const response = await documentApi.list(chatbotId);
+          const mappedDocs = response.documents.map((doc: any) => ({
+            id: doc.id,
+            name: doc.filename,
+            size: doc.file_size,
+            type: getFileType(doc.filename),
+            status: doc.status === 'completed' ? 'indexed' as const :
+                    doc.status === 'processing' ? 'processing' as const :
+                    'error' as const,
+            uploadDate: new Date(doc.created_at).toLocaleDateString(),
+            chunks: doc.chunks_count,
+            error: doc.error_message,
+            sourceType: doc.source_type,
+          }));
+          setDocuments(mappedDocs.filter((d: any) => d.sourceType !== 'url' && d.sourceType !== 'website'));
+          setUrls(mappedDocs
+            .filter((d: any) => d.sourceType === 'url' || d.sourceType === 'website')
+            .map((d: any) => ({
+              id: d.id,
+              url: d.name,
+              title: d.name,
+              status: d.status,
+              indexedDate: d.uploadDate,
+            }))
+          );
+        } catch (err) {
+          console.error('Failed to poll document status:', err);
+        }
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [documents, chatbotId]);
+
   const stats: KnowledgeBaseStats = {
-    totalDocuments: documents.filter((d) => d.status === 'indexed').length + urls.filter((u) => u.status === 'indexed').length,
+    totalDocuments: documents.length + urls.length,
     totalChunks: documents.reduce((acc, doc) => acc + (doc.chunks || 0), 0),
-    lastUpdated: 'Mar 27, 2026',
+    lastUpdated: documents.length > 0 || urls.length > 0 ? new Date().toLocaleDateString() : '-',
   };
 
   const filteredDocuments = documents.filter((doc) =>
@@ -127,47 +149,69 @@ export default function KnowledgeBasePage() {
       url.url.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     setIsUploading(true);
 
-    // Simulate upload
-    setTimeout(() => {
-      const newDocs: Document[] = Array.from(files).map((file, index) => ({
-        id: `new-${Date.now()}-${index}`,
+    for (const file of Array.from(files)) {
+      const tempId = `temp-${Date.now()}-${file.name}`;
+      const newDoc: Document = {
+        id: tempId,
         name: file.name,
         size: file.size,
         type: file.type,
-        status: 'processing' as const,
-        uploadDate: 'Mar 27, 2026',
-      }));
+        status: 'processing',
+        uploadDate: new Date().toLocaleDateString(),
+      };
+      setDocuments((prev) => [newDoc, ...prev]);
 
-      setDocuments((prev) => [...newDocs, ...prev]);
-      setIsUploading(false);
-
-      // Simulate processing completion
-      setTimeout(() => {
+      try {
+        const result = await documentApi.upload(chatbotId, file);
         setDocuments((prev) =>
           prev.map((doc) =>
-            newDocs.some((nd) => nd.id === doc.id)
-              ? { ...doc, status: 'indexed' as const, chunks: Math.floor(Math.random() * 100) + 10 }
+            doc.id === tempId
+              ? { ...doc, id: result.document_id, status: 'processing' as const }
               : doc
           )
         );
-      }, 3000);
-    }, 1500);
+      } catch (err) {
+        setDocuments((prev) =>
+          prev.map((doc) =>
+            doc.id === tempId
+              ? { ...doc, status: 'error' as const, error: err instanceof Error ? err.message : 'Upload failed' }
+              : doc
+          )
+        );
+      }
+    }
 
-    // Reset input
+    setIsUploading(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  }, []);
+  }, [chatbotId]);
 
-  const handleDeleteDocument = useCallback((id: string) => {
-    setDocuments((prev) => prev.filter((doc) => doc.id !== id));
-  }, []);
+  const handleDeleteDocument = useCallback(async (id: string) => {
+    try {
+      await documentApi.delete(chatbotId, id);
+      setDocuments((prev) => prev.filter((doc) => doc.id !== id));
+    } catch (err) {
+      console.error('Failed to delete document:', err);
+    }
+  }, [chatbotId]);
+
+  const handleDownloadDocument = useCallback(async (id: string) => {
+    try {
+      const response = await documentApi.get(chatbotId, id);
+      if (response.download_url) {
+        window.open(response.download_url, '_blank');
+      }
+    } catch (err) {
+      console.error('Failed to get document URL:', err);
+    }
+  }, [chatbotId]);
 
   const handleRetryDocument = useCallback((id: string) => {
     setDocuments((prev) =>
@@ -185,37 +229,45 @@ export default function KnowledgeBasePage() {
     }, 2000);
   }, []);
 
-  const handleAddUrl = useCallback(() => {
+  const handleAddUrl = useCallback(async () => {
     if (!newUrl.trim()) return;
 
     setIsAddingUrl(true);
+    const tempId = `url-${Date.now()}`;
 
-    // Simulate adding URL
-    setTimeout(() => {
+    try {
+      const urlHostname = new URL(newUrl).hostname;
       const newUrlSource: UrlSource = {
-        id: `url-${Date.now()}`,
+        id: tempId,
         url: newUrl,
-        title: new URL(newUrl).hostname,
+        title: urlHostname,
         status: 'crawling',
-        indexedDate: 'Mar 27, 2026',
+        indexedDate: new Date().toLocaleDateString(),
       };
 
       setUrls((prev) => [newUrlSource, ...prev]);
       setNewUrl('');
-      setIsAddingUrl(false);
 
-      // Simulate crawling completion
-      setTimeout(() => {
-        setUrls((prev) =>
-          prev.map((url) =>
-            url.id === newUrlSource.id
-              ? { ...url, status: 'indexed' as const, pages: Math.floor(Math.random() * 15) + 1, title: 'Indexed Page' }
-              : url
-          )
-        );
-      }, 4000);
-    }, 1000);
-  }, [newUrl]);
+      const result = await documentApi.addUrl(chatbotId, newUrl);
+      setUrls((prev) =>
+        prev.map((url) =>
+          url.id === tempId
+            ? { ...url, id: result.document_id, status: 'crawling' as const }
+            : url
+        )
+      );
+    } catch (err) {
+      setUrls((prev) =>
+        prev.map((url) =>
+          url.id === tempId
+            ? { ...url, status: 'error' as const, error: err instanceof Error ? err.message : 'Failed to add URL' }
+            : url
+        )
+      );
+    } finally {
+      setIsAddingUrl(false);
+    }
+  }, [newUrl, chatbotId]);
 
   const handleDeleteUrl = useCallback((id: string) => {
     setUrls((prev) => prev.filter((url) => url.id !== id));
@@ -237,30 +289,48 @@ export default function KnowledgeBasePage() {
     }, 3000);
   }, []);
 
-  const handleSaveText = useCallback(() => {
+  const handleSaveText = useCallback(async () => {
     if (!textTitle.trim() || !textContent.trim()) return;
 
     setIsSavingText(true);
+    const tempId = `text-${Date.now()}`;
 
-    // Simulate saving text
-    setTimeout(() => {
+    try {
       const newTextDoc: Document = {
-        id: `text-${Date.now()}`,
+        id: tempId,
         name: textTitle,
         size: textContent.length,
         type: 'text/plain',
-        status: 'indexed',
-        uploadDate: 'Mar 27, 2026',
-        chunks: Math.ceil(textContent.length / 500),
+        status: 'processing',
+        uploadDate: new Date().toLocaleDateString(),
       };
 
       setDocuments((prev) => [newTextDoc, ...prev]);
+
+      const result = await documentApi.addText(chatbotId, textContent, textTitle);
+      setDocuments((prev) =>
+        prev.map((doc) =>
+          doc.id === tempId
+            ? { ...doc, id: result.document_id, status: 'processing' as const }
+            : doc
+        )
+      );
+
       setTextTitle('');
       setTextContent('');
-      setIsSavingText(false);
       setActiveTab('documents');
-    }, 1500);
-  }, [textTitle, textContent]);
+    } catch (err) {
+      setDocuments((prev) =>
+        prev.map((doc) =>
+          doc.id === tempId
+            ? { ...doc, status: 'error' as const, error: err instanceof Error ? err.message : 'Failed to save text' }
+            : doc
+        )
+      );
+    } finally {
+      setIsSavingText(false);
+    }
+  }, [textTitle, textContent, chatbotId]);
 
   const tabs: { id: TabType; label: string; icon: React.ReactNode; count: number }[] = [
     {
@@ -439,7 +509,23 @@ export default function KnowledgeBasePage() {
 
         {activeTab === 'urls' && (
           <div className="space-y-6">
-            {/* Add URL Form */}
+            {/* Website Crawl Flow */}
+            <WebsiteCrawlFlow
+              chatbotId={chatbotId}
+              onComplete={fetchDocuments}
+            />
+
+            {/* Divider */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-black/[0.06]"></div>
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="px-3 bg-white text-[#6E6E73]">or add a single URL</span>
+              </div>
+            </div>
+
+            {/* Add Single URL Form */}
             <div className="flex gap-3">
               <Input
                 type="url"

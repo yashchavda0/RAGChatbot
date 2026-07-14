@@ -1,6 +1,5 @@
-# Lightweight Development Docker Compose for RAG Chatbot
-# Backend + Frontend in Docker, with memory limits
-# No Milvus/etcd/MinIO — uses Gemini API for embeddings
+# Development Docker Compose for RAG Chatbot
+# Full stack: PostgreSQL + Redis + Milvus (etcd + MinIO) + Backend + Frontend
 # Usage: docker-compose -f docker-compose.dev.yml up -d --build
 
 services:
@@ -29,6 +28,8 @@ services:
         limits:
           memory: 256M
     restart: unless-stopped
+    networks:
+      - backend
 
   redis:
     image: redis:7-alpine
@@ -48,6 +49,124 @@ services:
         limits:
           memory: 192M
     restart: unless-stopped
+    networks:
+      - backend
+
+  # ==========================================================================
+  # MILVUS VECTOR DATABASE
+  # ==========================================================================
+
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.5
+    container_name: rag-etcd-dev
+    environment:
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_AUTO_COMPACTION_RETENTION=1000
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+      - ETCD_SNAPSHOT_COUNT=10000
+    volumes:
+      - etcd_dev_data:/etcd
+    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 -data-dir /etcd
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+    restart: unless-stopped
+    networks:
+      - milvus
+
+  minio:
+    image: minio/minio:latest
+    container_name: rag-minio-dev
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /minio_data --console-address ":9001"
+    ports:
+      - "9000:9000"  # S3 API
+      - "9001:9001"  # Web Console
+    volumes:
+      - minio_dev_data:/minio_data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+    restart: unless-stopped
+    networks:
+      - milvus
+
+  milvus-standalone:
+    image: milvusdb/milvus:v2.4.17
+    container_name: rag-milvus-dev
+    command: ["milvus", "run", "standalone"]
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+      MINIO_ACCESS_KEY_ID: minioadmin
+      MINIO_SECRET_ACCESS_KEY: minioadmin
+    ports:
+      - "19530:19530"
+      - "9091:9091"
+    volumes:
+      - milvus_dev_data:/var/lib/milvus
+    depends_on:
+      etcd:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    restart: unless-stopped
+    networks:
+      - milvus
+      - backend
+
+  # ==========================================================================
+  # MILVUS GUI (Attu)
+  # ==========================================================================
+  attu:
+    image: zilliz/attu:v2.4
+    container_name: rag-attu-dev
+    environment:
+      MILVUS_URL: milvus-standalone:19530
+    ports:
+      - "8001:3000"
+    depends_on:
+      milvus-standalone:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    restart: unless-stopped
+    networks:
+      - milvus
 
   # ==========================================================================
   # BACKEND (FastAPI with hot-reload)
@@ -59,18 +178,29 @@ services:
       dockerfile: Dockerfile.backend
       target: development
     container_name: rag-backend-dev
-    # Override CMD to add --reload for dev (entrypoint uses exec "$@")
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     environment:
       POSTGRES_URL: postgresql://raguser:ragpassword@postgres:5432/rag_chatbot
       REDIS_URL: redis://redis:6379/0
+      LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
+      AZURE_OPENAI_ENDPOINT: ${AZURE_OPENAI_ENDPOINT:-}
+      AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY:-}
+      AZURE_OPENAI_DEPLOYMENT: ${AZURE_OPENAI_DEPLOYMENT:-}
+      AZURE_OPENAI_API_VERSION: ${AZURE_OPENAI_API_VERSION:-2024-02-15-preview}
       TAVILY_API_KEY: ${TAVILY_API_KEY}
+      YOUCOM_API_KEY: ${YOUCOM_API_KEY:-}
+      JINA_API_KEY: ${JINA_API_KEY:-}
       AZURE_DOC_INTELLIGENCE_ENDPOINT: ${AZURE_DOC_INTELLIGENCE_ENDPOINT:-}
       AZURE_DOC_INTELLIGENCE_KEY: ${AZURE_DOC_INTELLIGENCE_KEY:-}
-      EMBEDDING_MODELS: '["gemini-text-embedding-004"]'
-      DEFAULT_EMBEDDING_MODEL: gemini-text-embedding-004
+      MILVUS_HOST: milvus-standalone
+      MILVUS_PORT: 19530
       MILVUS_DIMENSION: 768
+      EMBEDDING_MODELS: '["gemini-embedding-001"]'
+      LOCAL_EMBEDDING_MODELS: '["all-MiniLM-L6-v2","bge-small-en-v1.5"]'
+      DEFAULT_EMBEDDING_MODEL: gemini-embedding-001
       CORS_ORIGINS: '["http://localhost:3000","http://127.0.0.1:3000"]'
       LOG_LEVEL: INFO
       PYTHONUNBUFFERED: 1
@@ -85,12 +215,14 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      milvus-standalone:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 30s
+      start_period: 40s
     deploy:
       resources:
         limits:
@@ -98,6 +230,89 @@ services:
     restart: unless-stopped
     stdin_open: true
     tty: true
+    networks:
+      - backend
+      - milvus
+
+  # ==========================================================================
+  # CELERY WORKER (Async Task Processing)
+  # ==========================================================================
+
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+      target: development
+    container_name: rag-celery-worker-dev
+    command: ["celery", "-A", "celery_app", "worker", "--loglevel=info", "--concurrency=4", "--pool=solo"]
+    environment:
+      POSTGRES_URL: postgresql://raguser:ragpassword@postgres:5432/rag_chatbot
+      REDIS_URL: redis://redis:6379/0
+      LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
+      AZURE_OPENAI_ENDPOINT: ${AZURE_OPENAI_ENDPOINT:-}
+      AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY:-}
+      AZURE_OPENAI_DEPLOYMENT: ${AZURE_OPENAI_DEPLOYMENT:-}
+      TAVILY_API_KEY: ${TAVILY_API_KEY}
+      AZURE_DOC_INTELLIGENCE_ENDPOINT: ${AZURE_DOC_INTELLIGENCE_ENDPOINT:-}
+      AZURE_DOC_INTELLIGENCE_KEY: ${AZURE_DOC_INTELLIGENCE_KEY:-}
+      MILVUS_HOST: milvus-standalone
+      MILVUS_PORT: 19530
+      MILVUS_DIMENSION: 768
+      EMBEDDING_MODELS: '["gemini-embedding-001"]'
+      LOCAL_EMBEDDING_MODELS: '["all-MiniLM-L6-v2","bge-small-en-v1.5"]'
+      DEFAULT_EMBEDDING_MODEL: gemini-embedding-001
+      PYTHONUNBUFFERED: 1
+      PYTHONDONTWRITEBYTECODE: 1
+    volumes:
+      - ./backend:/app
+      - backend_dev_data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      milvus-standalone:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    restart: unless-stopped
+    networks:
+      - backend
+      - milvus
+
+  # ==========================================================================
+  # FLOWER (Celery Monitoring UI)
+  # ==========================================================================
+
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+      target: development
+    container_name: rag-flower-dev
+    command: ["celery", "-A", "celery_app", "flower", "--port=5555"]
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "5555:5555"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - redis
+      - celery-worker
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    restart: unless-stopped
+    networks:
+      - backend
 
   # ==========================================================================
   # FRONTEND (Next.js with hot-reload)
@@ -132,7 +347,22 @@ services:
     stdin_open: true
     tty: true
 
+# ==========================================================================
+# NETWORKS
+# ==========================================================================
+networks:
+  backend:
+    driver: bridge
+  milvus:
+    driver: bridge
+
+# ==========================================================================
+# VOLUMES
+# ==========================================================================
 volumes:
   postgres_dev_data:
   redis_dev_data:
   backend_dev_data:
+  etcd_dev_data:
+  minio_dev_data:
+  milvus_dev_data:

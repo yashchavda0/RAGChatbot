@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { use } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Code2,
   Package,
@@ -9,48 +8,85 @@ import {
   Eye,
   Webhook,
   Bell,
-  Copy,
-  Check,
   ChevronDown,
   ExternalLink,
-  Palette,
-  MonitorSmartphone,
   Sparkles,
+  AlertCircle,
 } from 'lucide-react';
+import Link from 'next/link';
 import { CodeBlock, InlineCode } from '@/components/embed/CodeBlock';
-import { WidgetPreview, WidgetConfig, defaultConfig } from '@/components/embed/WidgetPreview';
-import { cn, copyToClipboard } from '@/lib/utils';
+import {
+  WidgetChatSurface,
+  WidgetSurfaceSettings,
+  DEFAULT_WIDGET_SETTINGS,
+  normalizeWidgetSettings,
+} from '@/components/widget/WidgetChatSurface';
+import { cn } from '@/lib/utils';
 
 type TabId = 'script' | 'npm' | 'react';
 
-export default function EmbedPage({ params }: { params: Promise<{ chatbotId: string }> }) {
-  const { chatbotId } = use(params);
+export default function EmbedPage({ params }: { params: { chatbotId: string } }) {
+  const { chatbotId } = params;
   const [activeTab, setActiveTab] = useState<TabId>('script');
-  const [config, setConfig] = useState<WidgetConfig>(defaultConfig);
-  const [copiedSection, setCopiedSection] = useState<string | null>(null);
+  const [previewSettings, setPreviewSettings] = useState<WidgetSurfaceSettings>(DEFAULT_WIDGET_SETTINGS);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // widget.js is served from the frontend's own origin (frontend/public/widget.js).
+  // Start with a relative path (matches on server + first client render to avoid a
+  // hydration mismatch), then resolve to an absolute same-origin URL after mount so
+  // the copy-paste snippet works on external customer sites.
+  const [widgetScriptUrl, setWidgetScriptUrl] = useState(
+    process.env.NEXT_PUBLIC_WIDGET_SCRIPT_URL || '/widget.js'
+  );
+  useEffect(() => {
+    if (!process.env.NEXT_PUBLIC_WIDGET_SCRIPT_URL && typeof window !== 'undefined') {
+      setWidgetScriptUrl(`${window.location.origin}/widget.js`);
+    }
+  }, []);
+  const widgetApiBaseUrl =
+    process.env.NEXT_PUBLIC_WIDGET_API_BASE_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    'http://localhost:8000';
 
-  const handleCopySection = async (section: string, text: string) => {
-    await copyToClipboard(text);
-    setCopiedSection(section);
-    setTimeout(() => setCopiedSection(null), 2000);
-  };
+  // The Embed tab no longer owns any settings. Load the single saved
+  // configuration (read-only) so the preview reflects the real widget.
+  useEffect(() => {
+    async function loadConfig() {
+      try {
+        setIsLoading(true);
+        setLoadError(null);
+        const response = await fetch(
+          `${widgetApiBaseUrl.replace(/\/$/, '')}/chatbots/${chatbotId}/customization`
+        );
+        if (!response.ok) {
+          throw new Error(`Customization request failed: HTTP ${response.status}`);
+        }
+        const data = await response.json();
+        setPreviewSettings(normalizeWidgetSettings(data as Record<string, any>));
+      } catch (err) {
+        console.error('Failed to load customization for embed preview:', err);
+        setLoadError('Could not load your saved widget settings — showing defaults.');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadConfig();
+  }, [chatbotId, widgetApiBaseUrl]);
 
-  // Generate code snippets based on config
+  // Runtime-fetch snippet: only the chatbotId is baked in. The widget loads the
+  // saved configuration at runtime via GET /chatbots/{id}/customization, so
+  // updating the Customization tab propagates to every embedded instance
+  // automatically (copy once, stays in sync).
   const codeSnippets = useMemo(
     () => ({
       script: `<!-- Add this script before the closing </body> tag -->
 <script>
   window.RAGChatbot = {
     chatbotId: '${chatbotId}',
-    primaryColor: '${config.primaryColor}',
-    position: '${config.position}',
-    buttonText: '${config.buttonText}',
-    welcomeMessage: '${config.welcomeMessage}',
-    placeholder: '${config.placeholder}',
-    showBranding: ${config.showBranding}
+    apiBaseUrl: '${widgetApiBaseUrl}'
   };
 </script>
-<script src="https://cdn.ragchatbot.io/widget.js" async></script>`,
+<script src="${widgetScriptUrl}" async></script>`,
       npm: `# Install the RAG Chatbot package
 npm install @ragchatbot/widget
 
@@ -67,31 +103,14 @@ function App() {
     <div>
       {/* Your app content */}
 
-      <RAGChatbotWidget
-        chatbotId="${chatbotId}"
-        primaryColor="${config.primaryColor}"
-        position="${config.position}"
-        buttonText="${config.buttonText}"
-        welcomeMessage="${config.welcomeMessage}"
-        placeholder="${config.placeholder}"
-        showBranding={${config.showBranding}}
-        onMessage={(message) => {
-          console.log('New message:', message);
-        }}
-        onOpen={() => {
-          console.log('Widget opened');
-        }}
-        onClose={() => {
-          console.log('Widget closed');
-        }}
-      />
+      <RAGChatbotWidget chatbotId="${chatbotId}" />
     </div>
   );
 }
 
 export default App;`,
     }),
-    [chatbotId, config]
+    [chatbotId, widgetApiBaseUrl, widgetScriptUrl]
   );
 
   const apiEndpointCode = `// API Endpoint: POST https://api.ragchatbot.io/v1/chat
@@ -158,6 +177,26 @@ interface WidgetEvents {
         <p className="text-[#6E6E73] mt-1">Add your chatbot to any website with our embed options.</p>
       </div>
 
+      {/* Single-source banner: settings live in the Customization tab */}
+      <section className="dashboard-card p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="w-10 h-10 rounded-xl bg-[#5B5EFF]/10 flex items-center justify-center flex-shrink-0">
+          <Settings2 className="w-5 h-5 text-[#5B5EFF]" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-sm font-semibold text-[#1D1D1F]">Widget settings are managed in the Customization tab</h2>
+          <p className="text-sm text-[#6E6E73] mt-0.5">
+            One chatbot, one configuration. Edit appearance, messages, and behavior there — every embedded instance picks up the latest automatically.
+          </p>
+        </div>
+        <Link
+          href={`/chatbot/${chatbotId}/customization`}
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white bg-gradient-to-r from-[#5B5EFF] to-[#8B7FFF] hover:from-[#3D3DD9] hover:to-[#5B5EFF] transition-all flex-shrink-0"
+        >
+          <Settings2 className="w-4 h-4" />
+          Open Customization
+        </Link>
+      </section>
+
       {/* Installation Section */}
       <section className="dashboard-card p-6">
         <div className="flex items-center gap-3 mb-6">
@@ -170,25 +209,35 @@ interface WidgetEvents {
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs. Only the Script Tag path is supported today; the NPM package
+            (@ragchatbot/widget) is not published yet, so those tabs are disabled. */}
         <div className="flex gap-1 p-1 bg-[#F5F5F7] rounded-xl mb-6 w-fit">
           {[
-            { id: 'script' as const, label: 'Script Tag', icon: Code2 },
-            { id: 'npm' as const, label: 'NPM Package', icon: Package },
-            { id: 'react' as const, label: 'React Component', icon: Sparkles },
+            { id: 'script' as const, label: 'Script Tag', icon: Code2, disabled: false },
+            { id: 'npm' as const, label: 'NPM Package', icon: Package, disabled: true },
+            { id: 'react' as const, label: 'React Component', icon: Sparkles, disabled: true },
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => !tab.disabled && setActiveTab(tab.id)}
+              disabled={tab.disabled}
+              title={tab.disabled ? 'Coming soon' : undefined}
               className={cn(
                 'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
-                activeTab === tab.id
+                tab.disabled
+                  ? 'text-[#B0B0B5] cursor-not-allowed'
+                  : activeTab === tab.id
                   ? 'bg-white text-[#1D1D1F] shadow-sm'
                   : 'text-[#6E6E73] hover:text-[#1D1D1F]'
               )}
             >
               <tab.icon className="w-4 h-4" />
               {tab.label}
+              {tab.disabled && (
+                <span className="ml-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-[#E8E8ED] text-[#6E6E73]">
+                  Soon
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -200,144 +249,49 @@ interface WidgetEvents {
           filename={activeTab === 'npm' ? 'terminal' : activeTab === 'script' ? 'index.html' : 'App.tsx'}
           showLineNumbers={activeTab === 'react'}
         />
+
+        {activeTab === 'script' && (
+          <div className="mt-4 p-4 bg-[#5B5EFF]/5 rounded-xl border border-[#5B5EFF]/10">
+            <p className="text-sm text-[#1D1D1F] font-medium mb-1">Script runtime targets</p>
+            <p className="text-xs text-[#6E6E73]">
+              Widget script URL: <InlineCode>{widgetScriptUrl}</InlineCode>
+            </p>
+            <p className="text-xs text-[#6E6E73] mt-1">
+              API base URL: <InlineCode>{widgetApiBaseUrl}</InlineCode>
+            </p>
+          </div>
+        )}
       </section>
 
-      {/* Configuration & Preview Grid */}
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Configuration */}
-        <section className="dashboard-card p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-[#5B5EFF]/10 flex items-center justify-center">
-              <Settings2 className="w-5 h-5 text-[#5B5EFF]" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-[#1D1D1F]">Configuration</h2>
-              <p className="text-sm text-[#6E6E73]">Customize your widget appearance</p>
-            </div>
+      {/* Widget Preview (read-only, driven by saved config) */}
+      <section className="dashboard-card p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 rounded-xl bg-[#5B5EFF]/10 flex items-center justify-center">
+            <Eye className="w-5 h-5 text-[#5B5EFF]" />
           </div>
-
-          <div className="space-y-5">
-            {/* Primary Color */}
-            <div>
-              <label className="block text-sm font-medium text-[#1D1D1F] mb-2">
-                <Palette className="w-4 h-4 inline mr-2" />
-                Primary Color
-              </label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="color"
-                  value={config.primaryColor}
-                  onChange={(e) => setConfig({ ...config, primaryColor: e.target.value })}
-                  className="w-12 h-12 rounded-xl cursor-pointer border border-black/[0.08] overflow-hidden"
-                />
-                <input
-                  type="text"
-                  value={config.primaryColor}
-                  onChange={(e) => setConfig({ ...config, primaryColor: e.target.value })}
-                  className="flex-1 px-3 py-2 text-sm bg-[#F5F5F7] rounded-xl border border-black/[0.08] focus:border-[#5B5EFF]/30 focus:ring-2 focus:ring-[#5B5EFF]/10 outline-none transition-all"
-                />
-              </div>
-            </div>
-
-            {/* Position */}
-            <div>
-              <label className="block text-sm font-medium text-[#1D1D1F] mb-2">
-                <MonitorSmartphone className="w-4 h-4 inline mr-2" />
-                Widget Position
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                {['bottom-right', 'bottom-left'].map((pos) => (
-                  <button
-                    key={pos}
-                    onClick={() => setConfig({ ...config, position: pos as 'bottom-right' | 'bottom-left' })}
-                    className={cn(
-                      'px-4 py-2.5 rounded-xl text-sm font-medium transition-all',
-                      config.position === pos
-                        ? 'bg-[#5B5EFF] text-white'
-                        : 'bg-[#F5F5F7] text-[#6E6E73] hover:bg-[#5B5EFF]/10'
-                    )}
-                  >
-                    {pos === 'bottom-right' ? 'Bottom Right' : 'Bottom Left'}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Button Text */}
-            <div>
-              <label className="block text-sm font-medium text-[#1D1D1F] mb-2">Button Text</label>
-              <input
-                type="text"
-                value={config.buttonText}
-                onChange={(e) => setConfig({ ...config, buttonText: e.target.value })}
-                className="w-full px-3 py-2.5 text-sm bg-[#F5F5F7] rounded-xl border border-black/[0.08] focus:border-[#5B5EFF]/30 focus:ring-2 focus:ring-[#5B5EFF]/10 outline-none transition-all"
-              />
-            </div>
-
-            {/* Welcome Message */}
-            <div>
-              <label className="block text-sm font-medium text-[#1D1D1F] mb-2">Welcome Message</label>
-              <input
-                type="text"
-                value={config.welcomeMessage}
-                onChange={(e) => setConfig({ ...config, welcomeMessage: e.target.value })}
-                className="w-full px-3 py-2.5 text-sm bg-[#F5F5F7] rounded-xl border border-black/[0.08] focus:border-[#5B5EFF]/30 focus:ring-2 focus:ring-[#5B5EFF]/10 outline-none transition-all"
-              />
-            </div>
-
-            {/* Placeholder */}
-            <div>
-              <label className="block text-sm font-medium text-[#1D1D1F] mb-2">Input Placeholder</label>
-              <input
-                type="text"
-                value={config.placeholder}
-                onChange={(e) => setConfig({ ...config, placeholder: e.target.value })}
-                className="w-full px-3 py-2.5 text-sm bg-[#F5F5F7] rounded-xl border border-black/[0.08] focus:border-[#5B5EFF]/30 focus:ring-2 focus:ring-[#5B5EFF]/10 outline-none transition-all"
-              />
-            </div>
-
-            {/* Show Branding */}
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-sm font-medium text-[#1D1D1F]">Show Branding</label>
-                <p className="text-xs text-[#6E6E73]">Display "Powered by" text</p>
-              </div>
-              <button
-                onClick={() => setConfig({ ...config, showBranding: !config.showBranding })}
-                className={cn(
-                  'relative w-12 h-7 rounded-full transition-colors',
-                  config.showBranding ? 'bg-[#5B5EFF]' : 'bg-[#E5E5EA]'
-                )}
-              >
-                <span
-                  className={cn(
-                    'absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-sm transition-transform',
-                    config.showBranding ? 'translate-x-5.5' : 'translate-x-0.5'
-                  )}
-                  style={{
-                    transform: config.showBranding ? 'translateX(22px)' : 'translateX(2px)',
-                  }}
-                />
-              </button>
-            </div>
+          <div className="flex-1">
+            <h2 className="text-lg font-semibold text-[#1D1D1F]">Widget Preview</h2>
+            <p className="text-sm text-[#6E6E73]">
+              {isLoading ? 'Loading your saved settings…' : 'Preview reflects your saved Customization settings'}
+            </p>
           </div>
-        </section>
+        </div>
 
-        {/* Widget Preview */}
-        <section className="dashboard-card p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-[#5B5EFF]/10 flex items-center justify-center">
-              <Eye className="w-5 h-5 text-[#5B5EFF]" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-[#1D1D1F]">Widget Preview</h2>
-              <p className="text-sm text-[#6E6E73]">See how your widget will look</p>
-            </div>
+        {loadError && (
+          <div className="mb-4 flex items-start gap-2 p-3 rounded-xl bg-[#FF3B30]/5 border border-[#FF3B30]/10">
+            <AlertCircle className="w-4 h-4 text-[#FF3B30] flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-[#FF3B30]">{loadError}</p>
           </div>
+        )}
 
-          <WidgetPreview config={config} />
-        </section>
-      </div>
+        <WidgetChatSurface
+          chatbotId={chatbotId}
+          sessionId={`embed-preview-${chatbotId}`}
+          settings={previewSettings}
+          apiBaseUrl={widgetApiBaseUrl}
+          preview
+        />
+      </section>
 
       {/* Advanced Section */}
       <section className="dashboard-card p-6">

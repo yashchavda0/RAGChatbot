@@ -18,7 +18,7 @@ FROM deps AS development
 WORKDIR /app
 
 # Only copy config files — source is mounted via docker-compose volumes
-COPY frontend/next.config.mjs frontend/tsconfig.json frontend/postcss.config.mjs frontend/tailwind.config.ts ./
+COPY frontend/next.config.mjs frontend/tsconfig.json frontend/postcss.config.js frontend/tailwind.config.ts ./
 COPY frontend/package.json ./
 
 ENV NEXT_TELEMETRY_DISABLED=1 \

@@ -1,5 +1,4 @@
-// Conversations Components Index
+export { ConversationFiltersComponent } from './ConversationFilters';
 export { ConversationList } from './ConversationList';
-export { ConversationDetail } from './ConversationDetail';
-export { ConversationFilters } from './ConversationFilters';
+export { ConversationDetailComponent } from './ConversationDetail';
 export { MessageThread } from './MessageThread';

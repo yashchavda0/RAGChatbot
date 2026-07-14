@@ -1,6 +1,7 @@
 """
 WebSocket connection manager for real-time agent execution updates.
 """
+
 from typing import Dict, Set, List, Any
 from fastapi import WebSocket, WebSocketDisconnect
 import json
@@ -46,11 +47,13 @@ class ConnectionManager:
         )
 
         # Send connection acknowledgment
-        await websocket.send_json({
-            "type": "connected",
-            "request_id": request_id,
-            "session_id": session_id,
-        })
+        await websocket.send_json(
+            {
+                "type": "connected",
+                "request_id": request_id,
+                "session_id": session_id,
+            }
+        )
 
         return request_id
 
@@ -64,8 +67,7 @@ class ConnectionManager:
 
         # Remove from request connections
         to_remove = [
-            req_id for req_id, ws in self.request_connections.items()
-            if ws == websocket
+            req_id for req_id, ws in self.request_connections.items() if ws == websocket
         ]
         for req_id in to_remove:
             del self.request_connections[req_id]
@@ -93,10 +95,20 @@ class ConnectionManager:
             return
 
         disconnected = []
-
-        for connection in self.active_connections[session_id]:
+        # Iterate over a copy to avoid "Set changed size during iteration" errors
+        for connection in list(self.active_connections[session_id]):
             try:
+                # WebSocketState: CONNECTING=0, CONNECTED=1, DISCONNECTING=2, DISCONNECTED=3
+                # Only send if in CONNECTED state (1)
+                if connection.client_state.value != 1:
+                    disconnected.append(connection)
+                    continue
+
                 await connection.send_json(message)
+            except RuntimeError as e:
+                # Connection already closed or in invalid state
+                logger.debug(f"Connection in invalid state: {e}")
+                disconnected.append(connection)
             except Exception as e:
                 logger.error(f"Error broadcasting to connection: {e}")
                 disconnected.append(connection)
@@ -104,6 +116,14 @@ class ConnectionManager:
         # Clean up disconnected connections
         for connection in disconnected:
             self.active_connections[session_id].discard(connection)
+            # Also remove from request_connections
+            to_remove = [
+                req_id
+                for req_id, ws in self.request_connections.items()
+                if ws == connection
+            ]
+            for req_id in to_remove:
+                del self.request_connections[req_id]
 
     async def send_agent_update(
         self,
@@ -117,13 +137,12 @@ class ConnectionManager:
         """Send an agent execution update."""
         message = {
             "type": "agent_update",
-            "request_id": request_id,
-            "session_id": session_id,
-            "agent": {
-                "id": agent_id,
-                "name": agent_name,
+            "data": {
+                "agent_id": agent_id,
+                "agent_name": agent_name,
                 "status": status,
-                "data": data,
+                "output_data": data.get("output"),
+                "error_message": data.get("error"),
             },
         }
 
@@ -151,8 +170,15 @@ class ConnectionManager:
         request_id: str,
         response: str,
         sources: List[dict],
+        token_usage: dict = None,
+        response_time_ms: int = None,
+        intent_confidence: float = None,
+        retrieval_confidence: float = None,
+        answer_source: str = None,
+        fallback_reason: str = None,
+        suggested_questions: List[str] = None,
     ) -> None:
-        """Send the final response."""
+        """Send the final response, optionally including metrics."""
         message = {
             "type": "response",
             "request_id": request_id,
@@ -160,6 +186,27 @@ class ConnectionManager:
             "response": response,
             "sources": sources,
         }
+
+        if token_usage is not None:
+            message["token_usage"] = token_usage
+
+        if response_time_ms is not None:
+            message["response_time_ms"] = int(response_time_ms)
+
+        if intent_confidence is not None:
+            message["intent_confidence"] = float(intent_confidence)
+
+        if retrieval_confidence is not None:
+            message["retrieval_confidence"] = float(retrieval_confidence)
+
+        if answer_source is not None:
+            message["answer_source"] = answer_source
+
+        if fallback_reason is not None:
+            message["fallback_reason"] = fallback_reason
+
+        if suggested_questions:
+            message["suggested_questions"] = suggested_questions
 
         await self.broadcast_to_session(message, session_id)
 

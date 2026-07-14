@@ -12,6 +12,12 @@ interface MessageListProps {
   messages: ChatMessage[];
   agentExecutions: AgentExecution[];
   isLoading?: boolean;
+  showAgentExecutions?: boolean;
+  assistantAvatarUrl?: string;
+  assistantName?: string;
+  compact?: boolean;
+  showMessageMeta?: boolean;
+  onSuggestionClick?: (question: string) => void;
 }
 
 const quickActions = [
@@ -25,18 +31,56 @@ export const MessageList = memo(function MessageList({
   messages,
   agentExecutions,
   isLoading = false,
+  showAgentExecutions = true,
+  assistantAvatarUrl,
+  assistantName = 'Assistant',
+  compact = false,
+  showMessageMeta = true,
+  onSuggestionClick,
 }: MessageListProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const previousMessageCountRef = useRef(0);
+  const hasPendingAssistantMessage =
+    isLoading &&
+    messages.some(
+      (message) => message.role === 'assistant' && message.content.trim().length === 0,
+    );
 
-  // Auto-scroll to bottom when new messages arrive
+  // Always scroll on a new user message; otherwise only auto-scroll when near bottom.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const viewport = scrollAreaRef.current?.querySelector(
+      '[data-radix-scroll-area-viewport]'
+    ) as HTMLDivElement | null;
+
+    if (!viewport) return;
+
+    const lastMessage = messages[messages.length - 1];
+    const messageCountIncreased = messages.length > previousMessageCountRef.current;
+    const isNewUserMessage = messageCountIncreased && lastMessage?.role === 'user';
+    previousMessageCountRef.current = messages.length;
+
+    if (isNewUserMessage) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+
+    const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+    const isNearBottom = distanceFromBottom < 96;
+
+    if (isNearBottom || messages.length <= 2) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages, agentExecutions]);
 
   return (
-    <ScrollArea className="flex-1 scrollbar-thin">
-      <div ref={scrollRef} className="px-4 lg:px-6 py-6 max-w-3xl mx-auto space-y-5">
+    <ScrollArea ref={scrollAreaRef} className="h-full w-full scrollbar-thin">
+      <div
+        className={cn(
+          'mx-auto',
+          compact ? 'max-w-none px-3 py-3 space-y-3' : 'max-w-3xl px-4 py-6 lg:px-6 space-y-5'
+        )}
+      >
         {/* Empty State */}
         {messages.length === 0 && !isLoading && (
           <div className="flex flex-col items-center justify-center text-center py-16 sm:py-24 animate-fade-in">
@@ -82,18 +126,39 @@ export const MessageList = memo(function MessageList({
         )}
 
         {/* Messages */}
-        {messages.map((message, index) => (
+        {messages.map((message, index) => {
+          const previousMessage = index > 0 ? messages[index - 1] : null;
+          const roleChanged = previousMessage ? previousMessage.role !== message.role : false;
+
+          return (
           <div
             key={message.id}
-            className="animate-message-in"
+            className={cn(
+              'animate-message-in',
+              compact && roleChanged && 'pt-1'
+            )}
             style={{ animationDelay: `${index * 30}ms` }}
           >
-            <MessageBubble message={message} />
+            <MessageBubble
+              message={message}
+              isLoading={
+                isLoading &&
+                message.role === 'assistant' &&
+                message.content.trim().length === 0 &&
+                index === messages.length - 1
+              }
+              showSources={showMessageMeta}
+              alwaysShowTimestamp={compact}
+              compact={compact}
+              assistantAvatarUrl={assistantAvatarUrl}
+              assistantName={assistantName}
+              onSuggestionClick={onSuggestionClick}
+            />
           </div>
-        ))}
+        )})}
 
         {/* Agent Executions */}
-        {agentExecutions.length > 0 && (
+        {showAgentExecutions && agentExecutions.length > 0 && (
           <div className="flex flex-wrap gap-2 px-1 animate-slide-up">
             {agentExecutions.map((execution, idx) => (
               <AgentExecutionCard key={idx} execution={execution} />
@@ -102,23 +167,31 @@ export const MessageList = memo(function MessageList({
         )}
 
         {/* Typing Indicator */}
-        {isLoading && (
+        {isLoading && !hasPendingAssistantMessage && (
           <div className="flex items-center gap-3 animate-slide-up">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-card shadow-card flex items-center justify-center border">
-              <Bot className="w-4 h-4 text-primary animate-pulse" />
-            </div>
+            {assistantAvatarUrl ? (
+              <img
+                src={assistantAvatarUrl}
+                alt={assistantName}
+                className="flex-shrink-0 h-8 w-8 rounded-full border border-black/5 object-cover shadow-sm"
+              />
+            ) : (
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-card shadow-card flex items-center justify-center border">
+                <Bot className="w-4 h-4 text-primary animate-pulse" />
+              </div>
+            )}
             <div className="bg-card rounded-2xl rounded-bl-md shadow-card border px-5 py-4">
               <div className="flex gap-1.5">
                 <div
-                  className="w-2 h-2 bg-muted-foreground rounded-full animate-typing-bounce"
+                  className="w-2 h-2 bg-primary/40 rounded-full animate-typing-bounce"
                   style={{ animationDelay: '0ms' }}
                 />
                 <div
-                  className="w-2 h-2 bg-muted-foreground rounded-full animate-typing-bounce"
+                  className="w-2 h-2 bg-primary/40 rounded-full animate-typing-bounce"
                   style={{ animationDelay: '150ms' }}
                 />
                 <div
-                  className="w-2 h-2 bg-muted-foreground rounded-full animate-typing-bounce"
+                  className="w-2 h-2 bg-primary/40 rounded-full animate-typing-bounce"
                   style={{ animationDelay: '300ms' }}
                 />
               </div>

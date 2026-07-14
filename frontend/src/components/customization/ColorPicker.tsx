@@ -73,7 +73,7 @@ export function ColorPicker({
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          'flex items-center gap-3 h-10 px-4 rounded-xl border border-black/[0.08] bg-white',
+          'w-full flex items-center gap-3 h-10 px-3 rounded-lg border border-black/[0.08] bg-white',
           'hover:border-[#5B5EFF]/30 transition-all duration-200',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5B5EFF]/20'
         )}
@@ -101,14 +101,14 @@ export function ColorPicker({
       {isOpen && (
         <div
           className={cn(
-            'absolute top-full left-0 mt-2 z-50 p-4',
+            'absolute top-full right-0 mt-2 z-50 p-3.5 w-[280px] max-w-[min(280px,calc(100vw-2rem))]',
             'bg-white rounded-2xl shadow-apple-lg border border-black/[0.08]',
-            'animate-scale-in min-w-[280px]'
+            'animate-scale-in'
           )}
         >
           {/* Preset Colors */}
-          <div className="mb-4">
-            <p className="text-xs font-medium text-[#6E6E73] mb-3">Preset Colors</p>
+          <div className="mb-3.5">
+            <p className="text-xs font-medium text-[#6E6E73] mb-2.5">Preset Colors</p>
             <div className="grid grid-cols-6 gap-2">
               {presets.map((color) => (
                 <button
@@ -116,7 +116,7 @@ export function ColorPicker({
                   type="button"
                   onClick={() => handlePresetClick(color)}
                   className={cn(
-                    'w-9 h-9 rounded-xl transition-all duration-200',
+                    'w-8 h-8 rounded-lg transition-all duration-200',
                     'hover:scale-110 active:scale-95',
                     'border-2',
                     value === color ? 'border-[#1D1D1F] shadow-md' : 'border-transparent'
@@ -130,13 +130,13 @@ export function ColorPicker({
 
           {/* Custom Color */}
           <div>
-            <p className="text-xs font-medium text-[#6E6E73] mb-3">Custom Color</p>
+            <p className="text-xs font-medium text-[#6E6E73] mb-2.5">Custom Color</p>
             <div className="flex items-center gap-3">
               <input
                 type="color"
                 value={customColor}
                 onChange={handleCustomChange}
-                className="w-10 h-10 rounded-xl cursor-pointer border-0 p-0.5 bg-transparent"
+                className="w-9 h-9 rounded-lg cursor-pointer border-0 p-0.5 bg-transparent"
               />
               <input
                 type="text"
@@ -149,7 +149,7 @@ export function ColorPicker({
                   }
                 }}
                 placeholder="#5B5EFF"
-                className="flex-1 h-10 px-3 rounded-xl border border-black/[0.08] text-sm text-[#1D1D1F] uppercase focus:outline-none focus:ring-2 focus:ring-[#5B5EFF]/20"
+                className="flex-1 h-9 px-3 rounded-lg border border-black/[0.08] text-sm text-[#1D1D1F] uppercase focus:outline-none focus:ring-2 focus:ring-[#5B5EFF]/20"
               />
             </div>
           </div>

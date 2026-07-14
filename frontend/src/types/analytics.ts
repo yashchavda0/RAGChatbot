@@ -1,6 +1,6 @@
 // Analytics Types for Multi-Tenant RAG Chatbot SaaS
 
-export type DateRange = '24h' | '7d' | '30d' | '90d' | 'custom';
+export type DateRange = '24h' | '7d' | '30d' | '90d' | '12m' | 'custom';
 
 export interface DateRangeOption {
   value: DateRange;

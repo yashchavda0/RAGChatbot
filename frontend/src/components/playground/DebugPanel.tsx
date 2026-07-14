@@ -15,6 +15,7 @@ import {
   Database,
   Cpu,
   Brain,
+  ArrowRight,
 } from 'lucide-react';
 import { AgentExecution, Source } from '@/types';
 import { formatDuration, cn } from '@/lib/utils';
@@ -30,7 +31,18 @@ interface DebugPanelProps {
     total: number;
   } | null;
   isStreaming: boolean;
+  queryStatus?: 'analyzing' | 'intent' | 'retrieving' | 'processing' | 'generating' | 'completed';
+  currentExecutingAgent?: AgentExecution | null;
 }
+
+const TIMELINE_STAGES = [
+  { id: 'analyzing', label: 'Query Received', icon: Target, color: 'text-[#6E6E73]' },
+  { id: 'intent', label: 'Intent Detection', icon: Brain, color: 'text-[#8B5CF6]' },
+  { id: 'retrieving', label: 'Retrieving Data', icon: Database, color: 'text-[#5B5EFF]' },
+  { id: 'processing', label: 'Processing', icon: Cpu, color: 'text-[#F97316]' },
+  { id: 'generating', label: 'Generating', icon: Zap, color: 'text-[#34C759]' },
+  { id: 'completed', label: 'Done', icon: CheckCircle2, color: 'text-[#34C759]' },
+];
 
 export function DebugPanel({
   intent,
@@ -39,8 +51,11 @@ export function DebugPanel({
   responseTime,
   tokenUsage,
   isStreaming,
+  queryStatus = 'analyzing',
+  currentExecutingAgent,
 }: DebugPanelProps) {
   const [expandedSections, setExpandedSections] = React.useState<Record<string, boolean>>({
+    timeline: true,
     intent: true,
     execution: true,
     sources: true,
@@ -71,6 +86,10 @@ export function DebugPanel({
   const intentConfig = getIntentConfig(intent);
   const IntentIcon = intentConfig.icon;
 
+  // Separate running and completed agents
+  const runningAgents = executions.filter((e) => e.status === 'running');
+  const completedAgents = executions.filter((e) => e.status !== 'running');
+
   return (
     <div className="h-full flex flex-col bg-white border-l border-black/[0.06]">
       {/* Header */}
@@ -81,6 +100,29 @@ export function DebugPanel({
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto scrollbar-apple">
+        {/* Timeline Section */}
+        <div className="border-b border-black/[0.04]">
+          <button
+            onClick={() => toggleSection('timeline')}
+            className="w-full px-4 py-3 flex items-center justify-between hover:bg-black/[0.02] transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              {expandedSections.timeline ? (
+                <ChevronDown className="w-4 h-4 text-[#6E6E73]" />
+              ) : (
+                <ChevronRight className="w-4 h-4 text-[#6E6E73]" />
+              )}
+              <Zap className="w-4 h-4 text-[#6E6E73]" />
+              <span className="text-sm font-medium text-[#1D1D1F]">Execution Timeline</span>
+            </div>
+          </button>
+          {expandedSections.timeline && (
+            <div className="px-4 pb-3">
+              <ExecutionTimeline status={queryStatus} isStreaming={isStreaming} />
+            </div>
+          )}
+        </div>
+
         {/* Intent Section */}
         <div className="border-b border-black/[0.04]">
           <button
@@ -133,15 +175,36 @@ export function DebugPanel({
             </span>
           </button>
           {expandedSections.execution && (
-            <div className="px-4 pb-3 space-y-2">
-              {executions.length === 0 ? (
+            <div className="px-4 pb-3 space-y-3">
+              {/* Currently Running */}
+              {runningAgents.length > 0 && (
+                <div>
+                  <div className="text-xs font-semibold text-[#6E6E73] mb-2">NOW EXECUTING</div>
+                  <div className="space-y-2">
+                    {runningAgents.map((execution, index) => (
+                      <ExecutionStep key={execution.agent_id + index} execution={execution} index={index} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Completed */}
+              {completedAgents.length > 0 && (
+                <div>
+                  {runningAgents.length > 0 && <div className="border-t border-black/[0.04] my-2" />}
+                  <div className="text-xs font-semibold text-[#6E6E73] mb-2">COMPLETED</div>
+                  <div className="space-y-2">
+                    {completedAgents.map((execution, index) => (
+                      <ExecutionStep key={execution.agent_id + index} execution={execution} index={index} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {executions.length === 0 && (
                 <div className="text-sm text-[#6E6E73] py-2">
                   {isStreaming ? 'Waiting for agents...' : 'No executions yet'}
                 </div>
-              ) : (
-                executions.map((execution, index) => (
-                  <ExecutionStep key={execution.agent_id + index} execution={execution} index={index} />
-                ))
               )}
             </div>
           )}
@@ -199,22 +262,22 @@ export function DebugPanel({
             <div className="px-4 pb-3 grid grid-cols-2 gap-3">
               <MetricCard
                 label="Response Time"
-                value={responseTime ? formatDuration(responseTime) : '--'}
+                value={responseTime ? formatDuration(responseTime) : (isStreaming ? '...' : '--')}
                 icon={<Clock className="w-4 h-4" />}
               />
               <MetricCard
                 label="Prompt Tokens"
-                value={tokenUsage?.prompt?.toLocaleString() ?? '--'}
+                value={tokenUsage?.prompt?.toLocaleString() ?? (isStreaming ? '...' : '--')}
                 icon={<Cpu className="w-4 h-4" />}
               />
               <MetricCard
                 label="Completion Tokens"
-                value={tokenUsage?.completion?.toLocaleString() ?? '--'}
+                value={tokenUsage?.completion?.toLocaleString() ?? (isStreaming ? '...' : '--')}
                 icon={<Brain className="w-4 h-4" />}
               />
               <MetricCard
                 label="Total Tokens"
-                value={tokenUsage?.total?.toLocaleString() ?? '--'}
+                value={tokenUsage?.total?.toLocaleString() ?? (isStreaming ? '...' : '--')}
                 icon={<Zap className="w-4 h-4" />}
                 highlight
               />
@@ -222,6 +285,64 @@ export function DebugPanel({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// Execution Timeline Component
+function ExecutionTimeline({ status, isStreaming }: { status: string; isStreaming: boolean }) {
+  const getStageIndex = (status: string) => {
+    const mapping: Record<string, number> = {
+      analyzing: 0,
+      intent: 1,
+      retrieving: 2,
+      processing: 3,
+      generating: 4,
+      completed: 5,
+    };
+    return mapping[status] || 0;
+  };
+
+  const currentIndex = getStageIndex(status);
+
+  return (
+    <div className="space-y-2">
+      {TIMELINE_STAGES.map((stage, index) => {
+        const StageIcon = stage.icon;
+        const isCompleted = index < currentIndex;
+        const isCurrent = index === currentIndex;
+
+        return (
+          <div key={stage.id} className="flex items-center gap-2">
+            <div
+              className={cn(
+                'flex items-center justify-center w-6 h-6 rounded-full flex-shrink-0',
+                isCompleted
+                  ? 'bg-[#34C759] text-white'
+                  : isCurrent
+                    ? 'bg-[#5B5EFF] text-white'
+                    : 'bg-[#F5F5F7] text-[#6E6E73]'
+              )}
+            >
+              {isCompleted ? (
+                <CheckCircle2 className="w-4 h-4" />
+              ) : isCurrent && isStreaming ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <StageIcon className="w-4 h-4" />
+              )}
+            </div>
+            <span
+              className={cn(
+                'text-sm',
+                isCompleted || isCurrent ? 'font-medium text-[#1D1D1F]' : 'text-[#6E6E73]'
+              )}
+            >
+              {stage.label}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -287,31 +408,97 @@ function ExecutionStep({ execution, index }: { execution: AgentExecution; index:
 
 // Source Item Component
 function SourceItem({ source, index }: { source: Source; index: number }) {
+  const [expanded, setExpanded] = React.useState(false);
+  
   const getTypeConfig = (type: string) => {
     switch (type) {
       case 'document':
-        return { icon: <FileSearch className="w-3.5 h-3.5" />, color: 'text-[#5B5EFF]' };
+        return { icon: <FileSearch className="w-3.5 h-3.5" />, color: 'text-[#5B5EFF]', bg: 'bg-[#5B5EFF]/10' };
       case 'web':
-        return { icon: <Globe className="w-3.5 h-3.5" />, color: 'text-[#A855F7]' };
+        return { icon: <Globe className="w-3.5 h-3.5" />, color: 'text-[#A855F7]', bg: 'bg-[#A855F7]/10' };
       case 'ocr':
-        return { icon: <Cpu className="w-3.5 h-3.5" />, color: 'text-[#F97316]' };
+        return { icon: <Cpu className="w-3.5 h-3.5" />, color: 'text-[#F97316]', bg: 'bg-[#F97316]/10' };
       default:
-        return { icon: <Database className="w-3.5 h-3.5" />, color: 'text-[#6E6E73]' };
+        return { icon: <Database className="w-3.5 h-3.5" />, color: 'text-[#6E6E73]', bg: 'bg-[#6E6E73]/10' };
     }
   };
 
   const config = getTypeConfig(source.type);
-  const label = source.filename || source.title || source.url || `Source ${index + 1}`;
+  const label = source.document_name || source.filename || source.title || source.url || `Source ${index + 1}`;
+  const scorePercent = source.similarity_score ? Math.round(source.similarity_score * 100) : null;
 
   return (
-    <div className="flex items-center gap-2 p-2 rounded-lg bg-[#F5F5F7]/50 hover:bg-[#F5F5F7] transition-colors">
-      <div className={cn('flex-shrink-0', config.color)}>{config.icon}</div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm text-[#1D1D1F] truncate">{label}</p>
-        {source.snippet && (
-          <p className="text-xs text-[#6E6E73] truncate mt-0.5">{source.snippet}</p>
+    <div className="rounded-lg bg-[#F5F5F7]/50 hover:bg-[#F5F5F7] transition-colors">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center gap-2 p-2"
+      >
+        <div className={cn('flex-shrink-0', config.color)}>{config.icon}</div>
+        <div className="flex-1 min-w-0 text-left">
+          <div className="flex items-center gap-2">
+            <p className="text-sm text-[#1D1D1F] truncate font-medium">{label}</p>
+            {scorePercent !== null && (
+              <span className={cn('text-xs px-1.5 py-0.5 rounded font-medium', config.bg, config.color)}>
+                {scorePercent}%
+              </span>
+            )}
+          </div>
+        </div>
+        {expanded ? (
+          <ChevronDown className="w-3.5 h-3.5 text-[#6E6E73] flex-shrink-0" />
+        ) : (
+          <ChevronRight className="w-3.5 h-3.5 text-[#6E6E73] flex-shrink-0" />
         )}
-      </div>
+      </button>
+      
+      {expanded && (
+        <div className="px-3 pb-2 space-y-1.5 text-xs">
+          {source.type === 'document' && (
+            <>
+              {source.page_number && (
+                <div className="flex gap-2">
+                  <span className="text-[#6E6E73] font-medium min-w-[60px]">Page:</span>
+                  <span className="text-[#1D1D1F]">{source.page_number}</span>
+                </div>
+              )}
+              {source.chunk_number !== undefined && (
+                <div className="flex gap-2">
+                  <span className="text-[#6E6E73] font-medium min-w-[60px]">Chunk:</span>
+                  <span className="text-[#1D1D1F]">{source.chunk_number}</span>
+                </div>
+              )}
+              {source.chunk_id && (
+                <div className="flex gap-2">
+                  <span className="text-[#6E6E73] font-medium min-w-[60px]">Chunk ID:</span>
+                  <span className="text-[#1D1D1F] font-mono text-[10px]">{source.chunk_id.slice(0, 16)}...</span>
+                </div>
+              )}
+            </>
+          )}
+          {source.type === 'web' && source.url && (
+            <div className="flex gap-2">
+              <span className="text-[#6E6E73] font-medium min-w-[60px]">URL:</span>
+              <a 
+                href={source.url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-[#5B5EFF] hover:underline truncate flex-1"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {source.url}
+              </a>
+            </div>
+          )}
+          {(source.content_preview || source.snippet) && (
+            <div>
+              <span className="text-[#6E6E73] font-medium">Preview:</span>
+              <p className="text-[#1D1D1F] mt-1 p-2 bg-white/50 rounded text-[11px] leading-relaxed line-clamp-3">
+                {source.content_preview || source.snippet}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { TopBar } from '@/components/shared/TopBar';
 
 // This layout protects all routes under (auth) group
 // In production, this would check for valid authentication tokens
@@ -23,7 +24,12 @@ export default function AuthLayout({
     }
   }, [router]);
 
-  return <>{children}</>;
+  return (
+    <div className="flex flex-col h-screen bg-[#F5F5F7]">
+      <TopBar />
+      <div className="flex-1 min-h-0">{children}</div>
+    </div>
+  );
 }
 
 // Mock auth check - replace with actual implementation

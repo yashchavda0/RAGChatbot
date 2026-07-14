@@ -3,7 +3,7 @@ Common Pydantic schemas for API request/response models.
 Includes pagination, error handling, and health check schemas.
 """
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Generic, TypeVar
+from typing import Any, List, Optional, Dict, Generic, TypeVar
 
 T = TypeVar("T")
 
@@ -43,11 +43,11 @@ class ErrorResponse(BaseModel):
 class SuccessResponse(BaseModel):
     """Success response schema."""
     message: str
-    data: Optional[Dict[str, any]] = None
+    data: Optional[Dict[str, Any]] = None
 
 
 class HealthResponse(BaseModel):
     """Health check response."""
     status: str
-    services: Dict[str, any]
+    services: Dict[str, Any]
     version: str = "2.0.0"

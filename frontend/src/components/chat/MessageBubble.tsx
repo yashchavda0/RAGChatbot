@@ -5,17 +5,29 @@ import ReactMarkdown from 'react-markdown';
 import { User, Bot, Copy, Check, ExternalLink } from 'lucide-react';
 import { ChatMessage } from '@/types';
 import { formatTimestamp } from '@/lib/utils';
-import { SourceCitation } from './SourceCitation';
+import { SourceFooter } from './SourceFooter';
 import { cn } from '@/lib/utils';
 
 interface MessageBubbleProps {
   message: ChatMessage;
   showSources?: boolean;
+  isLoading?: boolean;
+  assistantAvatarUrl?: string;
+  assistantName?: string;
+  alwaysShowTimestamp?: boolean;
+  compact?: boolean;
+  onSuggestionClick?: (question: string) => void;
 }
 
 export const MessageBubble = memo(function MessageBubble({
   message,
   showSources = true,
+  isLoading = false,
+  assistantAvatarUrl,
+  assistantName = 'Assistant',
+  alwaysShowTimestamp = false,
+  compact = false,
+  onSuggestionClick,
 }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const [showTimestamp, setShowTimestamp] = useState(false);
@@ -31,10 +43,14 @@ export const MessageBubble = memo(function MessageBubble({
     }
   };
 
+  const isEmpty = !message.content || message.content.trim() === '';
+
   return (
     <div
       className={cn(
         'flex gap-3 group animate-message-in',
+        compact && isUser && 'pl-6',
+        compact && !isUser && 'pr-6',
         isUser ? 'justify-end' : 'justify-start'
       )}
       onMouseEnter={() => setShowTimestamp(true)}
@@ -42,9 +58,17 @@ export const MessageBubble = memo(function MessageBubble({
     >
       {/* Assistant Avatar */}
       {!isUser && (
-        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shadow-sm">
-          <Bot className="w-4 h-4 text-primary" />
-        </div>
+        assistantAvatarUrl ? (
+          <img
+            src={assistantAvatarUrl}
+            alt={assistantName}
+            className="flex-shrink-0 h-8 w-8 rounded-full border border-black/5 object-cover shadow-sm"
+          />
+        ) : (
+          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shadow-sm">
+            <Bot className="w-4 h-4 text-primary" />
+          </div>
+        )
       )}
 
       <div
@@ -64,6 +88,12 @@ export const MessageBubble = memo(function MessageBubble({
         >
           {isUser ? (
             <p className="whitespace-pre-wrap break-words">{message.content}</p>
+          ) : isEmpty && isLoading ? (
+            <div className="flex gap-1.5 py-1">
+              <span className="w-2 h-2 rounded-full bg-[#5B5EFF] animate-bounce [animation-delay:0ms]" />
+              <span className="w-2 h-2 rounded-full bg-[#5B5EFF] animate-bounce [animation-delay:150ms]" />
+              <span className="w-2 h-2 rounded-full bg-[#5B5EFF] animate-bounce [animation-delay:300ms]" />
+            </div>
           ) : (
             <div className="prose-apple">
               <ReactMarkdown
@@ -125,7 +155,7 @@ export const MessageBubble = memo(function MessageBubble({
           )}
 
           {/* Copy Button (for assistant messages) */}
-          {!isUser && (
+          {!isUser && !isEmpty && (
             <button
               onClick={handleCopy}
               className={cn(
@@ -144,24 +174,76 @@ export const MessageBubble = memo(function MessageBubble({
           )}
         </div>
 
-        {/* Source Citations */}
-        {showSources && message.sources && message.sources.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-2">
-            {message.sources.map((source, idx) => (
-              <SourceCitation key={idx} source={source} index={idx + 1} />
-            ))}
+        {/* Meta Footer */}
+        {(!isUser && !isEmpty && showSources) && (
+          <div className="w-full mt-1.5 px-1 space-y-1">
+            {message.suggested_questions && message.suggested_questions.length > 0 && onSuggestionClick && (
+              <div className="flex flex-wrap gap-2">
+                {message.suggested_questions.map((question) => (
+                  <button
+                    key={question}
+                    type="button"
+                    onClick={() => onSuggestionClick(question)}
+                    className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100"
+                  >
+                    {question}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Row 1: Sources (collapsible) */}
+            {message.sources && message.sources.length > 0 && (
+              <SourceFooter sources={message.sources} />
+            )}
+
+            {/* Row 2: Intent label + Retrieval % left, timestamp right */}
+            {(message.answer_source !== undefined || message.retrieval_confidence !== undefined || message.sources?.length) ? (
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                  {message.answer_source !== undefined && (
+                    <span className="inline-flex items-center gap-1">
+                      <span className="font-medium">Intent:</span>
+                      <span className="font-mono">
+                        {message.answer_source === 'web'
+                          ? 'Web Search'
+                          : message.answer_source === 'fallback'
+                            ? 'Fallback'
+                            : 'Data'}
+                      </span>
+                    </span>
+                  )}
+                  {message.retrieval_confidence !== undefined && message.answer_source !== 'web' && message.answer_source !== 'fallback' && (
+                    <span className="inline-flex items-center gap-1">
+                      <span className="font-medium">Retrieval:</span>
+                      <span className="font-mono">{(message.retrieval_confidence * 100).toFixed(0)}%</span>
+                    </span>
+                  )}
+                </div>
+                <span
+                  className={cn(
+                    'text-[10px] text-muted-foreground flex-shrink-0 transition-opacity duration-200',
+                    showTimestamp || alwaysShowTimestamp ? 'opacity-100' : 'opacity-0'
+                  )}
+                >
+                  {formatTimestamp(message.timestamp)}
+                </span>
+              </div>
+            ) : null}
           </div>
         )}
 
-        {/* Timestamp */}
-        <span
-          className={cn(
-            'text-[10px] text-muted-foreground mt-1.5 px-1 transition-opacity duration-200',
-            showTimestamp ? 'opacity-100' : 'opacity-0'
-          )}
-        >
-          {formatTimestamp(message.timestamp)}
-        </span>
+        {/* User timestamp (right-aligned) */}
+        {isUser && (
+          <span
+            className={cn(
+              'text-[10px] text-muted-foreground mt-1.5 px-1 transition-opacity duration-200',
+              showTimestamp || alwaysShowTimestamp ? 'opacity-100' : 'opacity-0'
+            )}
+          >
+            {formatTimestamp(message.timestamp)}
+          </span>
+        )}
       </div>
 
       {/* User Avatar */}

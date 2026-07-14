@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -81,18 +82,19 @@ interface SettingRowProps {
   description?: string;
   children: React.ReactNode;
   className?: string;
+  controlClassName?: string;
 }
 
-export function SettingRow({ label, description, children, className }: SettingRowProps) {
+export function SettingRow({ label, description, children, className, controlClassName }: SettingRowProps) {
   return (
-    <div className={cn('flex flex-col sm:flex-row sm:items-start gap-4', className)}>
-      <div className="flex-1 min-w-0">
+    <div className={cn('flex flex-col sm:flex-row sm:items-start gap-3', className)}>
+      <div className="flex-1 min-w-0 sm:pr-2">
         <label className="block text-sm font-medium text-[#1D1D1F]">{label}</label>
         {description && (
           <p className="text-[13px] text-[#6E6E73] mt-0.5">{description}</p>
         )}
       </div>
-      <div className="sm:w-[280px] flex-shrink-0">{children}</div>
+      <div className={cn('sm:w-[224px] flex-shrink-0 flex sm:justify-end', controlClassName)}>{children}</div>
     </div>
   );
 }
@@ -238,35 +240,90 @@ interface SelectProps {
 }
 
 export function Select({ value, onChange, options, placeholder, disabled }: SelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const selectedOption = options.find((option) => option.value === value);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSelect = (selectedValue: string) => {
+    onChange(selectedValue);
+    setIsOpen(false);
+  };
+
   return (
-    <div className="relative">
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+    <div ref={containerRef} className="relative w-full">
+      <button
+        type="button"
+        onClick={() => !disabled && setIsOpen((prev) => !prev)}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            setIsOpen(false);
+          }
+        }}
         disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
         className={cn(
-          'w-full h-10 px-4 pr-10 rounded-xl border border-black/[0.08] bg-white',
-          'text-[14px] text-[#1D1D1F] appearance-none cursor-pointer',
+          'w-full flex items-center gap-2 h-10 px-3 rounded-lg border border-black/[0.08] bg-white',
+          'text-[14px] text-[#1D1D1F] cursor-pointer',
+          'hover:border-[#5B5EFF]/30',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5B5EFF]/20',
           'disabled:cursor-not-allowed disabled:opacity-40 transition-all duration-200'
         )}
       >
-        {placeholder && (
-          <option value="" disabled>
-            {placeholder}
-          </option>
-        )}
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-        <svg className="w-4 h-4 text-[#6E6E73]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <span className={cn('flex-1 text-left truncate', !selectedOption && 'text-[#6E6E73]')}>
+          {selectedOption ? selectedOption.label : placeholder || 'Select option'}
+        </span>
+        <svg
+          className={cn('w-4 h-4 text-[#6E6E73] transition-transform', isOpen && 'rotate-180')}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
+
+      </button>
+
+      {isOpen && !disabled && (
+        <div
+          className={cn(
+            'absolute top-full left-0 right-0 mt-2 z-50',
+            'bg-white rounded-2xl shadow-apple-lg border border-black/[0.08]',
+            'animate-scale-in overflow-hidden'
+          )}
+        >
+          <div className="p-2 max-h-[240px] overflow-y-auto scrollbar-apple" role="listbox">
+            {options.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                role="option"
+                aria-selected={value === option.value}
+                onClick={() => handleSelect(option.value)}
+                className={cn(
+                  'w-full text-left px-3 py-2 rounded-lg text-sm transition-colors duration-150',
+                  'hover:bg-[#5B5EFF]/5',
+                  value === option.value && 'bg-[#5B5EFF]/10 text-[#1D1D1F] font-medium'
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       </div>
-    </div>
   );
 }

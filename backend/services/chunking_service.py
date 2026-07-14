@@ -264,16 +264,12 @@ class ChunkingService:
         return all_chunks
 
 
-# Global instance with default settings
-_chunking_service: Optional[ChunkingService] = None
-
-
 def get_chunking_service(
     chunk_size: int = 1024,
     chunk_overlap: int = 50,
 ) -> ChunkingService:
     """
-    Get or create a chunking service instance.
+    Create a chunking service instance.
 
     Args:
         chunk_size: Maximum characters per chunk
@@ -282,7 +278,4 @@ def get_chunking_service(
     Returns:
         ChunkingService instance
     """
-    global _chunking_service
-    if _chunking_service is None:
-        _chunking_service = ChunkingService(chunk_size, chunk_overlap)
-    return _chunking_service
+    return ChunkingService(chunk_size, chunk_overlap)

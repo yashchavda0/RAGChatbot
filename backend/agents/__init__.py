@@ -1,37 +1,54 @@
 """
-Agent module - Individual agent files with auto-registration.
+Agent module — V2 pipeline agent registration.
 
-This module imports all agents which register themselves automatically via the @register_agent decorator.
+Old agents (intent_classifier, plan_generator, plan_validator, document_search)
+are intentionally NOT imported here. Their @register_agent decorators only fire
+on import, so they are invisible to the new graph.
 """
-# Import all agents to trigger their registration via @register_agent decorator
 from .registry import AgentRegistry, registry
 
-# Import orchestration agents (they will auto-register themselves)
-from .orchestration.intent_classifier import IntentClassifierAgent
-from .orchestration.plan_generator import PlanGeneratorAgent
-from .orchestration.plan_validator import PlanValidatorAgent
+# --- V2 orchestration agents ---
+from .orchestration.multi_step_planner import MultiStepPlannerAgent
+from .orchestration.research_gap_analyzer import ResearchGapAnalyzerAgent
 
-# Import execution agents
-from .execution.document_search import DocumentSearchAgent
+# --- V2 execution agents ---
+from .execution.query_rewriter import QueryRewriterAgent
+from .execution.session_loader import SessionLoaderAgent
+from .execution.hybrid_retrieval import HybridRetrievalAgent
+from .execution.confidence_evaluator import ConfidenceEvaluatorAgent
+from .execution.context_compressor import ContextCompressorAgent
+from .execution.draft_generator import DraftGeneratorAgent
+from .execution.answer_critiquer import AnswerCritiquerAgent
+from .execution.answer_improver import AnswerImproverAgent
+
+# --- Kept / modified agents ---
+from .execution.reranker import RerankerAgent
 from .execution.web_search import WebSearchAgent
+from .execution.response_synthesis import ResponseSynthesisAgent
+from .execution.groundedness_check import GroundednessCheckAgent
 from .execution.ocr import OCRAgent
 from .execution.url_processing import URLProcessingAgent
-from .execution.reranker import RerankerAgent
-from .execution.response_synthesis import ResponseSynthesisAgent
-
-# Import indexing agents
-# from .indexing.document_indexing import DocumentIndexingAgent
 
 __all__ = [
     "AgentRegistry",
     "registry",
-    "IntentClassifierAgent",
-    "PlanGeneratorAgent",
-    "PlanValidatorAgent",
-    "DocumentSearchAgent",
+    # V2 orchestration
+    "MultiStepPlannerAgent",
+    "ResearchGapAnalyzerAgent",
+    # V2 execution
+    "QueryRewriterAgent",
+    "SessionLoaderAgent",
+    "HybridRetrievalAgent",
+    "ConfidenceEvaluatorAgent",
+    "ContextCompressorAgent",
+    "DraftGeneratorAgent",
+    "AnswerCritiquerAgent",
+    "AnswerImproverAgent",
+    # Modified
+    "RerankerAgent",
     "WebSearchAgent",
+    "ResponseSynthesisAgent",
+    "GroundednessCheckAgent",
     "OCRAgent",
     "URLProcessingAgent",
-    "RerankerAgent",
-    "ResponseSynthesisAgent",
 ]

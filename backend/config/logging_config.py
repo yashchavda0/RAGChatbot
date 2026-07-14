@@ -3,6 +3,9 @@ Logging configuration for structured JSON logging.
 """
 import logging
 import logging.config
+import queue
+import atexit
+from logging.handlers import QueueHandler, QueueListener
 import json
 import sys
 import time
@@ -15,20 +18,81 @@ from config.settings import settings
 request_id_var: ContextVar[str] = ContextVar("request_id", default="")
 
 
+class TaskLogFilter(logging.Filter):
+    """Keep only task-completion/result INFO logs while always allowing warnings/errors."""
+
+    ALLOWED_KEYWORDS = (
+        "completed",
+        "completion",
+        "results",
+        "result",
+        "decision",
+        "final response",
+        "generated response",
+        "query processed",
+        "uploaded",
+        "deleted",
+        "created",
+        "processed",
+    )
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.levelno >= logging.WARNING:
+            return True
+
+        if not settings.log_task_only:
+            return True
+
+        message = record.getMessage().strip()
+        lower_message = message.lower()
+
+        if message.startswith("{") or message.startswith("["):
+            try:
+                payload = json.loads(message)
+                if isinstance(payload, dict):
+                    event = str(payload.get("event", "")).lower()
+                    status = str(payload.get("status", "")).lower()
+
+                    if status in {"completed", "failed"}:
+                        return True
+
+                    if any(keyword in event for keyword in self.ALLOWED_KEYWORDS):
+                        return True
+
+                    if any(key in payload for key in ("results", "results_count", "final_count", "response_length", "max_score", "fused_max_score")):
+                        return True
+            except json.JSONDecodeError:
+                pass
+
+        return any(keyword in lower_message for keyword in self.ALLOWED_KEYWORDS)
+
+
 class JSONFormatter(logging.Formatter):
     """Custom JSON formatter for structured logging."""
 
     def format(self, record: logging.LogRecord) -> str:
         """Format log record as JSON."""
+        message = record.getMessage()
         log_data: Dict[str, Any] = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "level": record.levelname,
             "logger": record.name,
-            "message": record.getMessage(),
+            "message": message,
             "module": record.module,
             "function": record.funcName,
             "line": record.lineno,
         }
+
+        # If the log message itself is JSON, surface it as structured fields so it
+        # is readable in Docker logs and JSON viewers instead of being double-escaped.
+        stripped_message = message.strip()
+        if stripped_message.startswith("{") or stripped_message.startswith("["):
+            try:
+                structured_message = json.loads(stripped_message)
+                log_data["message"] = structured_message.get("event", message) if isinstance(structured_message, dict) else message
+                log_data["payload"] = structured_message
+            except json.JSONDecodeError:
+                pass
 
         # Add request_id if available
         request_id = request_id_var.get()
@@ -114,9 +178,10 @@ def setup_logging() -> None:
     # Remove existing handlers
     root_logger.handlers.clear()
 
-    # Console handler
+    # Console handler (used by QueueListener when async logging enabled)
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(log_level)
+    console_handler.addFilter(TaskLogFilter())
 
     if log_format == "json":
         formatter = JSONFormatter()
@@ -124,7 +189,30 @@ def setup_logging() -> None:
         formatter = TextFormatter()
 
     console_handler.setFormatter(formatter)
-    root_logger.addHandler(console_handler)
+
+    # Optionally use QueueHandler/QueueListener for non-blocking logging
+    if settings.log_async:
+        log_queue: queue.Queue = queue.Queue(-1)
+        queue_handler = QueueHandler(log_queue)
+        queue_handler.setLevel(log_level)
+        queue_handler.addFilter(TaskLogFilter())
+        queue_handler.setFormatter(formatter)
+        root_logger.addHandler(queue_handler)
+
+        # Start background listener that forwards queue entries to console_handler
+        listener = QueueListener(log_queue, console_handler, respect_handler_level=True)
+        listener.start()
+
+        # Register atexit hook to stop listener cleanly
+        def _stop_listener():
+            try:
+                listener.stop()
+            except Exception:
+                pass
+
+        atexit.register(_stop_listener)
+    else:
+        root_logger.addHandler(console_handler)
 
     # Suppress noisy loggers
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)

@@ -2,18 +2,20 @@
 import uuid
 from typing import List, Optional
 from fastapi import APIRouter, UploadFile, File, HTTPException, Query
+from config import settings
 from config.logging_config import get_logger
 from services.document_processor import DocumentProcessorService
 from services.chunking_service import ChunkingService
 from services.embedding_service import get_embedding_service
 from services.milvus_service import get_milvus_service
+from services.bm25_service import get_bm25_service
 from api.schemas.chat import DocumentUploadResponse, DocumentListResponse
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 logger = get_logger(__name__)
 
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
-ALLOWED_EXTENSIONS = {".pdf", ".docx", ".doc", ".txt", ".md", ".markdown"}
+ALLOWED_EXTENSIONS = {".pdf", ".docx", ".doc", ".txt", ".md", ".markdown", ".png", ".jpg", ".jpeg", ".tiff", ".bmp"}
 
 
 @router.post("/upload", response_model=DocumentUploadResponse)
@@ -22,9 +24,9 @@ async def upload_document(
     file: UploadFile = File(...),
 ):
     """
-    Upload and process a document.
+    Upload and process a document with multi-embedding ensemble.
 
-    Supports: PDF, DOCX, TXT, MD
+    Supports: PDF, DOCX, TXT, MD, PNG, JPG, TIFF, BMP
     """
     document_id = str(uuid.uuid4())
     logger.info(f"Uploading document: {file.filename}")
@@ -58,31 +60,40 @@ async def upload_document(
         chunks = [c["content"] for c in chunk_result]
         logger.info(f"Document split into {len(chunks)} chunks")
 
-        # Generate embeddings and store
+        # Generate embeddings with all active models
         embedding_service = get_embedding_service()
         milvus_service = get_milvus_service()
 
         all_embeddings = await embedding_service.embed_documents_with_all_models(chunks)
+        models_used = list(all_embeddings.keys())
+        logger.info(f"Generated embeddings with models: {models_used}")
 
-        total_inserted = 0
-        for model_name, embeddings in all_embeddings.items():
-            inserted = await milvus_service.insert_embeddings(
-                embeddings=embeddings,
+        # Insert with multi-model embeddings
+        inserted_ids = await milvus_service.insert_embeddings(
+            embeddings=all_embeddings,
+            chatbot_id=chatbot_id,
+            document_id=document_id,
+            chunks=chunks,
+            metadata=[{"filename": file.filename, "source_type": "upload"}] * len(chunks),
+        )
+
+        # Update BM25 index
+        if settings.bm25_enabled:
+            bm25_service = get_bm25_service()
+            bm25_service.add_documents(
                 chatbot_id=chatbot_id,
-                document_id=document_id,
                 chunks=chunks,
-                embedding_model=model_name,
-                metadata=[{"filename": file.filename, "source_type": "upload"}] * len(chunks),
+                chunk_ids=[f"{document_id}_{i}" for i in range(len(chunks))],
             )
-            total_inserted += len(inserted)
+            logger.info(f"Updated BM25 index for chatbot {chatbot_id}")
 
-        logger.info(f"Document uploaded: {file.filename} ({total_inserted} embeddings)")
+        logger.info(f"Document uploaded: {file.filename} ({len(inserted_ids)} chunks, {len(models_used)} models)")
 
         return DocumentUploadResponse(
             message="Document processed successfully",
             document_id=document_id,
             chunks_created=len(chunks),
-            embedding_models=list(all_embeddings.keys()),
+            embedding_models=models_used,
         )
 
     except HTTPException:
@@ -168,7 +179,7 @@ async def upload_url(
     try:
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Accept": "text/html,application/xhtml+xml",
+            "Accept": "text/html,application/xhtml+xml,application/pdf,*/*",
         }
         timeout = aiohttp.ClientTimeout(total=30)
 
@@ -176,18 +187,40 @@ async def upload_url(
             async with client.get(url, headers=headers, allow_redirects=True) as response:
                 if response.status != 200:
                     raise HTTPException(status_code=400, detail=f"Failed to fetch: HTTP {response.status}")
-                html = await response.text()
 
-        # Parse HTML
-        soup = BeautifulSoup(html, "lxml")
-        for element in soup(["script", "style", "nav", "header", "footer"]):
-            element.decompose()
+                # Check content type to determine how to process
+                content_type = response.headers.get("Content-Type", "").lower()
 
-        title = soup.title.get_text(strip=True) if soup.title else url
-        text = soup.body.get_text(separator="\n", strip=True) if soup.body else ""
+                # Handle PDF files
+                if "application/pdf" in content_type or url.lower().endswith(".pdf"):
+                    logger.info(f"Detected PDF content, processing as document")
+                    content = await response.read()
 
-        lines = [line.strip() for line in text.split("\n") if line.strip()]
-        clean_text = "\n".join(lines)
+                    # Extract filename from URL
+                    filename = url.split("/")[-1] if "/" in url else "document.pdf"
+                    if not filename.lower().endswith(".pdf"):
+                        filename += ".pdf"
+
+                    # Process PDF using DocumentProcessor
+                    processor = DocumentProcessorService()
+                    result = await processor.process_document(file_content=content, filename=filename)
+                    clean_text = result.get("text", "")
+                    title = filename
+
+                # Handle HTML/text content
+                else:
+                    html = await response.text()
+
+                    # Parse HTML
+                    soup = BeautifulSoup(html, "lxml")
+                    for element in soup(["script", "style", "nav", "header", "footer"]):
+                        element.decompose()
+
+                    title = soup.title.get_text(strip=True) if soup.title else url
+                    text = soup.body.get_text(separator="\n", strip=True) if soup.body else ""
+
+                    lines = [line.strip() for line in text.split("\n") if line.strip()]
+                    clean_text = "\n".join(lines)
 
         if len(clean_text) < 100:
             raise HTTPException(status_code=400, detail="Insufficient content from URL")
@@ -200,26 +233,33 @@ async def upload_url(
         embedding_service = get_embedding_service()
         milvus_service = get_milvus_service()
         all_embeddings = await embedding_service.embed_documents_with_all_models(chunks)
+        models_used = list(all_embeddings.keys())
 
-        total_inserted = 0
-        for model_name, embeddings in all_embeddings.items():
-            inserted = await milvus_service.insert_embeddings(
-                embeddings=embeddings,
+        # Insert with multi-model embeddings
+        inserted_ids = await milvus_service.insert_embeddings(
+            embeddings=all_embeddings,
+            chatbot_id=chatbot_id,
+            document_id=document_id,
+            chunks=chunks,
+            metadata=[{"filename": title, "source_url": url, "source_type": "url"}] * len(chunks),
+        )
+
+        # Update BM25 index
+        if settings.bm25_enabled:
+            bm25_service = get_bm25_service()
+            bm25_service.add_documents(
                 chatbot_id=chatbot_id,
-                document_id=document_id,
                 chunks=chunks,
-                embedding_model=model_name,
-                metadata=[{"filename": title, "source_url": url, "source_type": "url"}] * len(chunks),
+                chunk_ids=[f"{document_id}_{i}" for i in range(len(chunks))],
             )
-            total_inserted += len(inserted)
 
-        logger.info(f"URL processed: {url} ({total_inserted} embeddings)")
+        logger.info(f"URL processed: {url} ({len(inserted_ids)} chunks, {len(models_used)} models)")
 
         return DocumentUploadResponse(
             message="URL processed successfully",
             document_id=document_id,
             chunks_created=len(chunks),
-            embedding_models=list(all_embeddings.keys()),
+            embedding_models=models_used,
         )
 
     except HTTPException:

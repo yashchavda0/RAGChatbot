@@ -12,7 +12,6 @@ import {
   ArrowRight,
   CheckCircle2,
   XCircle,
-  Loader2,
   Circle,
 } from 'lucide-react';
 import { AgentExecution } from '@/types';
@@ -112,7 +111,13 @@ function FlowStepNode({ step, isLast }: { step: FlowStep; isLast: boolean }) {
       iconColor: 'text-[#6E6E73]/40',
     },
     running: {
-      icon: <Loader2 className="w-4 h-4 animate-spin" />,
+      icon: (
+        <span className="flex gap-0.5">
+          <span className="w-1 h-1 rounded-full bg-current animate-bounce [animation-delay:0ms]" />
+          <span className="w-1 h-1 rounded-full bg-current animate-bounce [animation-delay:150ms]" />
+          <span className="w-1 h-1 rounded-full bg-current animate-bounce [animation-delay:300ms]" />
+        </span>
+      ),
       bg: 'bg-[#5B5EFF]/10',
       border: 'border-[#5B5EFF]/30',
       text: 'text-[#5B5EFF]',

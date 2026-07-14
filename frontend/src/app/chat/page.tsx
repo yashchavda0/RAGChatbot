@@ -299,6 +299,7 @@ export default function ChatPage() {
             messages={messages}
             agentExecutions={agentExecutions}
             isLoading={isLoading}
+            onSuggestionClick={handleSendMessage}
           />
           <ChatInput
             onSendMessage={handleSendMessage}

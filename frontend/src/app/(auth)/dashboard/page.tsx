@@ -1,58 +1,57 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { GlassCard } from '@/components/shared/GlassCard';
 import { ChatbotCard } from '@/components/dashboard/ChatbotCard';
 import { CreateChatbotModal } from '@/components/dashboard/CreateChatbotModal';
-import type { ChatbotListItem } from '@/types/chatbot';
+import { chatbotApi, ChatbotResponse } from '@/lib/api';
+import type { ChatbotListItem, ChatbotStatus } from '@/types/chatbot';
 
-// Mock data for development
-const mockChatbots: ChatbotListItem[] = [
-  {
-    id: '1',
-    name: 'Customer Support Bot',
-    description: 'AI-powered assistant for handling customer inquiries and support tickets',
-    status: 'live',
-    conversationCount: 12847,
-    lastActiveAt: '2024-01-15T12:30:00Z',
-    createdAt: '2023-10-01T00:00:00Z',
-  },
-  {
-    id: '2',
-    name: 'Sales Assistant',
-    description: 'Helps qualify leads and answer product questions',
-    status: 'live',
-    conversationCount: 4523,
-    lastActiveAt: '2024-01-15T11:45:00Z',
-    createdAt: '2023-11-15T00:00:00Z',
-  },
-  {
-    id: '3',
-    name: 'Documentation Helper',
-    description: 'Guides users through our API documentation and examples',
-    status: 'draft',
+function mapChatbotToListItem(chatbot: ChatbotResponse): ChatbotListItem {
+  const statusMap: Record<string, ChatbotStatus> = {
+    active: 'live',
+    training: 'draft',
+    error: 'inactive',
+    draft: 'draft',
+  };
+  return {
+    id: chatbot.id,
+    name: chatbot.name,
+    description: chatbot.description || '',
+    status: statusMap[chatbot.status] || 'draft',
     conversationCount: 0,
-    lastActiveAt: undefined,
-    createdAt: '2024-01-10T00:00:00Z',
-  },
-  {
-    id: '4',
-    name: 'HR Assistant',
-    description: 'Answers employee questions about policies and benefits',
-    status: 'inactive',
-    conversationCount: 892,
-    lastActiveAt: '2023-12-20T14:00:00Z',
-    createdAt: '2023-09-01T00:00:00Z',
-  },
-];
+    lastActiveAt: chatbot.created_at || undefined,
+    createdAt: chatbot.created_at || new Date().toISOString(),
+  };
+}
 
 export default function DashboardPage() {
-  const [chatbots, setChatbots] = useState<ChatbotListItem[]>(mockChatbots);
+  const router = useRouter();
+  const [chatbots, setChatbots] = useState<ChatbotListItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'live' | 'draft' | 'inactive'>('all');
+
+  const fetchChatbots = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await chatbotApi.list();
+      setChatbots(response.chatbots.map(mapChatbotToListItem));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load chatbots');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchChatbots();
+  }, [fetchChatbots]);
 
   const filteredChatbots = chatbots.filter((chatbot) => {
     const matchesSearch =
@@ -64,23 +63,19 @@ export default function DashboardPage() {
 
   const handleCreateChatbot = async (data: { name: string; description: string }) => {
     setIsCreating(true);
-
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    const newChatbot: ChatbotListItem = {
-      id: String(Date.now()),
-      name: data.name,
-      description: data.description,
-      status: 'draft',
-      conversationCount: 0,
-      lastActiveAt: undefined,
-      createdAt: new Date().toISOString(),
-    };
-
-    setChatbots([newChatbot, ...chatbots]);
-    setIsCreating(false);
-    setIsCreateModalOpen(false);
+    try {
+      const newChatbot = await chatbotApi.create({
+        name: data.name,
+        description: data.description,
+      });
+      setChatbots([mapChatbotToListItem(newChatbot), ...chatbots]);
+      setIsCreateModalOpen(false);
+      router.push(`/chatbot/${newChatbot.id}/knowledge-base`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create chatbot');
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const stats = {
@@ -92,7 +87,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F5F7]">
+    <div className="h-full overflow-y-auto">
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
@@ -180,7 +175,36 @@ export default function DashboardPage() {
         </div>
 
         {/* Chatbots Grid */}
-        {filteredChatbots.length > 0 ? (
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {[1, 2, 3, 4].map((i) => (
+              <GlassCard key={i} className="animate-pulse">
+                <div className="h-6 bg-[#E5E5EA] rounded w-1/2 mb-3" />
+                <div className="h-4 bg-[#E5E5EA] rounded w-3/4 mb-4" />
+                <div className="flex gap-2">
+                  <div className="h-6 bg-[#E5E5EA] rounded w-16" />
+                  <div className="h-6 bg-[#E5E5EA] rounded w-24" />
+                </div>
+              </GlassCard>
+            ))}
+          </div>
+        ) : error ? (
+          <GlassCard className="text-center py-16">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-[#FF3B30]/10 flex items-center justify-center">
+              <svg className="w-8 h-8 text-[#FF3B30]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-[#1D1D1F] mb-2">Failed to load chatbots</h3>
+            <p className="text-[#86868B] mb-6">{error}</p>
+            <button
+              onClick={fetchChatbots}
+              className="px-6 py-2.5 rounded-xl text-sm font-medium text-white bg-gradient-to-r from-[#5B5EFF] to-[#8B7FFF] hover:from-[#3D3DD9] hover:to-[#5B5EFF] transition-all"
+            >
+              Try Again
+            </button>
+          </GlassCard>
+        ) : filteredChatbots.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {filteredChatbots.map((chatbot) => (
               <ChatbotCard key={chatbot.id} chatbot={chatbot} />

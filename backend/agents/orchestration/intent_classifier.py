@@ -44,9 +44,12 @@ class IntentClassifierAgent(BaseAgent):
         )
 
         try:
-            from services.gemini_service import GeminiService
+            from services.llm_service import get_llm_service
 
-            gemini_service = GeminiService()
+            gemini_service = get_llm_service()
+
+            # System prompt for intent classification
+            system_prompt = "You are a query classification assistant. Your job is to accurately classify user queries into one of the predefined intent categories based on the query content."
 
             # Classify intent using Gemini
             prompt = f"""Classify the following user query into one of these intents:
@@ -62,7 +65,7 @@ class IntentClassifierAgent(BaseAgent):
             Example: DOCUMENT_SEARCH|0.95
             """
 
-            response = await gemini_service.generate(prompt, temperature=0.1)
+            response = await gemini_service.generate(prompt, system_prompt=system_prompt, temperature=0.1)
 
             # Parse response
             parts = response.strip().split("|")
