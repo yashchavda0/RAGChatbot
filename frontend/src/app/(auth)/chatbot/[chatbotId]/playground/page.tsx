@@ -9,12 +9,11 @@ import {
   Bot,
   Plus,
 } from 'lucide-react';
-import { MessageBubble } from '@/components/chat/MessageBubble';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { DebugPanel } from '@/components/playground/DebugPanel';
 import { ChatMessage, AgentExecution, Source } from '@/types';
 import { cn } from '@/lib/utils';
-import { useChat } from '@/hooks/useChat';
+import { MessageBubble, useChat } from '@ragchatbot/shared-ui';
 
 const SESSION_KEY = (chatbotId: string) => `playground_session_${chatbotId}`;
 

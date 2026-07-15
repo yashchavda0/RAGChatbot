@@ -5,9 +5,8 @@ import { cn } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { ColorPicker } from '@/components/customization/ColorPicker';
-import { WidgetChatSurface } from '@/components/widget/WidgetChatSurface';
+import { WidgetChatSurface, ScrollArea, ScrollBar } from '@ragchatbot/shared-ui';
 import {
   SettingRow,
   Toggle,

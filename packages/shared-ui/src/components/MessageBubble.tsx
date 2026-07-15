@@ -1,12 +1,11 @@
 'use client';
 
-import React, { useState, memo } from 'react';
+import { useState, memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { User, Bot, Copy, Check, ExternalLink } from 'lucide-react';
-import { ChatMessage } from '@/types';
-import { formatTimestamp } from '@/lib/utils';
+import type { ChatMessage } from '@ragchatbot/shared-types';
+import { formatTimestamp, cn } from '../utils';
 import { SourceFooter } from './SourceFooter';
-import { cn } from '@/lib/utils';
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -90,9 +89,9 @@ export const MessageBubble = memo(function MessageBubble({
             <p className="whitespace-pre-wrap break-words">{message.content}</p>
           ) : isEmpty && isLoading ? (
             <div className="flex gap-1.5 py-1">
-              <span className="w-2 h-2 rounded-full bg-[#5B5EFF] animate-bounce [animation-delay:0ms]" />
-              <span className="w-2 h-2 rounded-full bg-[#5B5EFF] animate-bounce [animation-delay:150ms]" />
-              <span className="w-2 h-2 rounded-full bg-[#5B5EFF] animate-bounce [animation-delay:300ms]" />
+              <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:0ms]" />
+              <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:150ms]" />
+              <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:300ms]" />
             </div>
           ) : (
             <div className="prose-apple">
@@ -204,7 +203,7 @@ export const MessageBubble = memo(function MessageBubble({
                   {message.answer_source !== undefined && (
                     <span className="inline-flex items-center gap-1">
                       <span className="font-medium">Intent:</span>
-                      <span className="font-mono">
+                      <span>
                         {message.answer_source === 'web'
                           ? 'Web Search'
                           : message.answer_source === 'fallback'
@@ -216,7 +215,7 @@ export const MessageBubble = memo(function MessageBubble({
                   {message.retrieval_confidence !== undefined && message.answer_source !== 'web' && message.answer_source !== 'fallback' && (
                     <span className="inline-flex items-center gap-1">
                       <span className="font-medium">Retrieval:</span>
-                      <span className="font-mono">{(message.retrieval_confidence * 100).toFixed(0)}%</span>
+                      <span>{(message.retrieval_confidence * 100).toFixed(0)}%</span>
                     </span>
                   )}
                 </div>

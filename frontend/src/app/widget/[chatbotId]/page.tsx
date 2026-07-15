@@ -7,7 +7,7 @@ import {
   WidgetSurfaceSettings,
   DEFAULT_WIDGET_SETTINGS,
   normalizeWidgetSettings,
-} from '@/components/widget/WidgetChatSurface';
+} from '@ragchatbot/shared-ui';
 
 export default function PublicWidgetPage({ params }: { params: { chatbotId: string } }) {
   const searchParams = useSearchParams();

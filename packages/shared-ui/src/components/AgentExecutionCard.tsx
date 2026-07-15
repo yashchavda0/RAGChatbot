@@ -1,9 +1,8 @@
 'use client';
 
-import React from 'react';
 import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
-import { AgentExecution } from '@/types';
-import { formatExecutionTime, cn } from '@/lib/utils';
+import type { AgentExecution } from '@ragchatbot/shared-types';
+import { formatExecutionTime, cn } from '../utils';
 
 interface AgentExecutionCardProps {
   execution: AgentExecution;

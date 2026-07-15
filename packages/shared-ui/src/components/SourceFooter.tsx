@@ -2,11 +2,19 @@
 
 import React, { useMemo, useState } from 'react';
 import { FileText, Globe, ChevronDown, ChevronRight } from 'lucide-react';
-import { Source } from '@/types';
+import type { Source } from '@ragchatbot/shared-types';
 
 interface SourceFooterProps {
   sources?: Source[];
   maxVisible?: number;
+}
+
+function truncateLabel(name: string, maxLen = 20): string {
+  if (name.length <= maxLen) return name;
+  const truncated = name.slice(0, maxLen);
+  const lastSpace = truncated.lastIndexOf(' ');
+  const base = lastSpace > maxLen * 0.5 ? truncated.slice(0, lastSpace) : truncated;
+  return `${base.trimEnd()}…`;
 }
 
 export const SourceFooter: React.FC<SourceFooterProps> = ({ sources = [], maxVisible = 3 }) => {
@@ -50,23 +58,42 @@ export const SourceFooter: React.FC<SourceFooterProps> = ({ sources = [], maxVis
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
       {visibleSources.map((source, idx) => {
-        const displayName = (source.document_name || source.filename || source.title || 'Source')
-          .replace(/\.(pdf|docx?|txt)$/i, '')
-          .substring(0, 20);
+        const displayName = truncateLabel(
+          (source.document_name || source.filename || source.title || 'Source')
+            .replace(/\.(pdf|docx?|txt)$/i, '')
+        );
 
         const isWeb = source.kind === 'web';
+        const chipClassName = `inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] ${
+          isWeb
+            ? 'bg-emerald-50/60 border border-emerald-100 text-emerald-700 hover:bg-emerald-100/60'
+            : 'bg-blue-50/60 border border-blue-100 text-blue-700'
+        }`;
+        const icon = isWeb ? <Globe className="w-2.5 h-2.5" /> : <FileText className="w-2.5 h-2.5" />;
+
+        if (isWeb && source.url) {
+          return (
+            <a
+              key={`${source.kind}-${idx}`}
+              href={source.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={chipClassName}
+              title={source.url}
+            >
+              {icon}
+              <span className="font-medium">{displayName}</span>
+            </a>
+          );
+        }
 
         return (
           <div
             key={`${source.kind}-${idx}`}
-            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] ${
-              isWeb
-                ? 'bg-emerald-50/60 border border-emerald-100 text-emerald-700'
-                : 'bg-blue-50/60 border border-blue-100 text-blue-700'
-            }`}
+            className={chipClassName}
             title={source.document_name || source.filename || source.url}
           >
-            {isWeb ? <Globe className="w-2.5 h-2.5" /> : <FileText className="w-2.5 h-2.5" />}
+            {icon}
             <span className="font-medium">{displayName}</span>
           </div>
         );

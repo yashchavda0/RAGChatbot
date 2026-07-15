@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import type { ChatMessage, AgentExecution, Source } from "@/types";
+import type { ChatMessage, AgentExecution, Source } from "@ragchatbot/shared-types";
 import { useWebSocket } from "./useWebSocket";
 
 const API_URL =

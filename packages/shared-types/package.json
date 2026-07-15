@@ -1,0 +1,8 @@
+{
+  "name": "@ragchatbot/shared-types",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "types": "./src/index.ts",
+  "main": "./src/index.ts"
+}

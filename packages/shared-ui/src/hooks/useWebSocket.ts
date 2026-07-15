@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import type { WSMessage, AgentUpdateMessage } from "@/types";
+import type { WSMessage, AgentUpdateMessage } from "@ragchatbot/shared-types";
 
 const WS_URL =
   (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_WS_URL) ||

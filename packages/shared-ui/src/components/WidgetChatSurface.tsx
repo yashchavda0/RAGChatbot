@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import { Copy, Check } from 'lucide-react';
-import type { ChatMessage, Source } from '@/types';
-import { useChat } from '@/hooks/useChat';
+import React, { useEffect, useMemo, useState } from 'react';
+import type { ChatMessage } from '@ragchatbot/shared-types';
+import { useChat } from '../hooks/useChat';
+import { MessageList } from './MessageList';
+import { hexToHslTriplet } from '../utils';
 
 export interface WidgetSurfaceSettings {
   primaryColor: string;
@@ -90,20 +90,6 @@ function deriveWsUrl(apiBaseUrl?: string): string | undefined {
   return apiBaseUrl.replace(/\/$/, '').replace(/^http/i, 'ws');
 }
 
-function sourceLabel(source: Source) {
-  if (source.document_name) return source.document_name;
-  if (source.filename) return source.filename;
-  if (source.title) return source.title;
-  if (source.url) {
-    try {
-      return new URL(source.url).hostname;
-    } catch {
-      return source.url;
-    }
-  }
-  return 'Source';
-}
-
 function BubbleIcon({ color = 'currentColor' }: { color?: string }) {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" aria-hidden="true">
@@ -129,6 +115,14 @@ function AvatarFallback({ color }: { color: string }) {
   );
 }
 
+function CloseIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M18 6 6 18M6 6l12 12" />
+    </svg>
+  );
+}
+
 export function WidgetChatSurface({
   chatbotId,
   sessionId,
@@ -140,12 +134,14 @@ export function WidgetChatSurface({
   const resolvedFont = FONT_FAMILIES[settings.fontFamily] || FONT_FAMILIES.Inter;
   const [isOpen, setIsOpen] = useState(preview ? true : settings.autoOpen);
   const [inputValue, setInputValue] = useState('');
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const wsUrl = useMemo(() => deriveWsUrl(apiBaseUrl), [apiBaseUrl]);
+  const primaryHsl = useMemo(() => hexToHslTriplet(settings.primaryColor), [settings.primaryColor]);
+
+  // Preview mode stacks the mock browser background, the widget panel, a gap, and the
+  // launcher button — size the container to fit all of it so the panel is never clipped.
+  const previewStackHeight = panel.height + 8 + 56;
+  const previewContainerHeight = Math.max(600, previewStackHeight + 48);
 
   const { messages, isLoading, isStreaming, sendMessage } = useChat(chatbotId, sessionId, {
     apiBaseUrl,
@@ -161,19 +157,6 @@ export function WidgetChatSurface({
     setIsOpen(settings.autoOpen);
   }, [preview, settings.autoOpen]);
 
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (el) {
-      el.scrollTop = el.scrollHeight;
-    }
-  }, [messages, isLoading]);
-
-  useEffect(() => {
-    return () => {
-      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
-    };
-  }, []);
-
   const surfaceMessages = useMemo<ChatMessage[]>(() => {
     if (messages.length > 0) return messages;
     return [
@@ -181,7 +164,7 @@ export function WidgetChatSurface({
         id: 'widget-welcome',
         role: 'assistant',
         content: `${settings.greeting}\n\n${settings.welcomeMessage}`,
-        timestamp: new Date(0),
+        timestamp: new Date(),
       },
     ];
   }, [messages, settings.greeting, settings.welcomeMessage]);
@@ -191,79 +174,11 @@ export function WidgetChatSurface({
     void sendMessage(content);
   };
 
-  const handleCopy = async (id: string, content: string) => {
-    try {
-      await navigator.clipboard.writeText(content);
-      setCopiedId(id);
-      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
-      copyTimeoutRef.current = setTimeout(() => {
-        setCopiedId((prev) => (prev === id ? null : prev));
-      }, 2000);
-    } catch {
-      // Ignore clipboard failures (e.g. insecure context on a customer site).
-    }
-  };
-
-  const mdComponents = useMemo(
-    () => ({
-      p: ({ children }: any) => <p style={{ margin: '0 0 8px 0' }}>{children}</p>,
-      ul: ({ children }: any) => <ul style={{ margin: '0 0 8px 0', paddingLeft: 18 }}>{children}</ul>,
-      ol: ({ children }: any) => <ol style={{ margin: '0 0 8px 0', paddingLeft: 18 }}>{children}</ol>,
-      li: ({ children }: any) => <li style={{ marginBottom: 2 }}>{children}</li>,
-      strong: ({ children }: any) => <strong style={{ fontWeight: 600 }}>{children}</strong>,
-      code: ({ className, children }: any) => {
-        const isInline = !className;
-        return isInline ? (
-          <code
-            style={{
-              background: `${settings.primaryColor}1A`,
-              color: settings.primaryColor,
-              padding: '1px 5px',
-              borderRadius: 4,
-              fontSize: 12,
-              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-            }}
-          >
-            {children}
-          </code>
-        ) : (
-          <code
-            style={{
-              display: 'block',
-              background: '#0F172A',
-              color: '#E2E8F0',
-              borderRadius: 8,
-              padding: 10,
-              fontSize: 12,
-              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-              overflowX: 'auto',
-              margin: '6px 0',
-            }}
-          >
-            {children}
-          </code>
-        );
-      },
-      pre: ({ children }: any) => <>{children}</>,
-      a: ({ href, children }: any) => (
-        <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: settings.primaryColor, textDecoration: 'underline' }}>
-          {children}
-        </a>
-      ),
-      blockquote: ({ children }: any) => (
-        <blockquote style={{ borderLeft: `2px solid ${settings.primaryColor}`, margin: '6px 0', padding: '0 0 0 10px', color: '#6E6E73', fontStyle: 'italic' }}>
-          {children}
-        </blockquote>
-      ),
-    }),
-    [settings.primaryColor],
-  );
-
   const containerStyle: React.CSSProperties = preview
     ? {
         position: 'relative',
         width: '100%',
-        height: 600,
+        height: previewContainerHeight,
         borderRadius: 16,
         overflow: 'hidden',
         background: 'linear-gradient(135deg, #E8E8ED 0%, #D1D1D6 100%)',
@@ -295,6 +210,18 @@ export function WidgetChatSurface({
     maxWidth: 'calc(100% - 48px)',
   };
 
+  // Without this, the panel + launcher button sit in a plain (non-flex) box that
+  // shrink-to-fits to its widest child — the ~420px panel when open vs. the 56px
+  // button when closed — so the button visually jumps side to side as it opens
+  // and closes. Re-applying the same flex/alignItems as the fixed-position
+  // container keeps both children independently anchored to the correct side.
+  const widgetStackStyle: React.CSSProperties = {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: settings.position === 'bottom-right' ? 'flex-end' : 'flex-start',
+    gap: 8,
+  };
+
   const panelStyle: React.CSSProperties = {
     width: panel.width,
     height: panel.height,
@@ -310,11 +237,30 @@ export function WidgetChatSurface({
   };
 
   return (
-    <div style={containerStyle}>
+    <div
+      className="rag-widget-surface"
+      style={{
+        ...containerStyle,
+        '--primary': primaryHsl,
+        '--primary-foreground': '0 0% 100%',
+      } as React.CSSProperties}
+    >
       <style>{`
         @keyframes ragchatbot-bounce {
           0%, 80%, 100% { transform: translateY(0); opacity: 0.5; }
           40% { transform: translateY(-3px); opacity: 1; }
+        }
+        .rag-widget-surface *:focus-visible {
+          outline: none;
+          box-shadow: 0 0 0 2px hsl(var(--primary) / 0.4);
+        }
+        .rag-widget-surface .rag-widget-input-shell:focus-within {
+          box-shadow: 0 0 0 2px hsl(var(--primary) / 0.4);
+        }
+        .rag-widget-surface .rag-widget-input-shell textarea:focus,
+        .rag-widget-surface .rag-widget-input-shell textarea:focus-visible {
+          outline: none;
+          box-shadow: none;
         }
       `}</style>
 
@@ -334,7 +280,7 @@ export function WidgetChatSurface({
         </>
       )}
 
-      <div style={preview ? previewWidgetAnchorStyle : undefined}>
+      <div style={preview ? previewWidgetAnchorStyle : widgetStackStyle}>
         {isOpen && (
           <section style={panelStyle} aria-label={`${settings.botName} chat widget`}>
             <div
@@ -391,167 +337,29 @@ export function WidgetChatSurface({
                 }}
                 aria-label="Close chat"
               >
-                x
+                <CloseIcon />
               </button>
             </div>
 
-            <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', background: '#FFFFFF', padding: 14 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {surfaceMessages.map((message, idx) => {
-                  const isLastMessage = idx === surfaceMessages.length - 1;
-                  const isEmpty = !message.content || message.content.trim() === '';
-                  const isPending =
-                    isLastMessage &&
-                    message.role === 'assistant' &&
-                    isEmpty &&
-                    (isLoading || isStreaming) &&
-                    settings.showTypingIndicator;
-                  const isAssistant = message.role === 'assistant';
-
-                  return (
-                    <div
-                      key={message.id}
-                      onMouseEnter={() => isAssistant && setHoveredId(message.id)}
-                      onMouseLeave={() => isAssistant && setHoveredId((prev) => (prev === message.id ? null : prev))}
-                      style={{
-                        display: 'flex',
-                        gap: 8,
-                        alignItems: 'flex-end',
-                        justifyContent: message.role === 'user' ? 'flex-end' : 'flex-start',
-                      }}
-                    >
-                      {isAssistant && (
-                        settings.avatarUrl ? (
-                          <img
-                            src={settings.avatarUrl}
-                            alt={settings.botName}
-                            style={{ width: 28, height: 28, borderRadius: 999, objectFit: 'cover', flexShrink: 0 }}
-                          />
-                        ) : (
-                          <div
-                            style={{
-                              width: 28,
-                              height: 28,
-                              borderRadius: 999,
-                              background: '#F1F1F4',
-                              display: 'grid',
-                              placeItems: 'center',
-                              flexShrink: 0,
-                            }}
-                          >
-                            <AvatarFallback color={settings.primaryColor} />
-                          </div>
-                        )
-                      )}
-
-                      <div
-                        style={{
-                          position: 'relative',
-                          maxWidth: '82%',
-                          padding: '11px 14px',
-                          borderRadius: 18,
-                          borderBottomLeftRadius: isAssistant ? 8 : 18,
-                          borderBottomRightRadius: message.role === 'user' ? 8 : 18,
-                          background: message.role === 'user' ? settings.primaryColor : '#F5F5F7',
-                          color: message.role === 'user' ? '#FFFFFF' : '#1D1D1F',
-                          fontSize: 14,
-                          lineHeight: 1.5,
-                          wordBreak: 'break-word',
-                        }}
-                      >
-                        {isPending ? (
-                          <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                            <span style={{ width: 8, height: 8, borderRadius: 999, background: 'rgba(91,94,255,0.45)', animation: 'ragchatbot-bounce 1.1s infinite ease-in-out' }} />
-                            <span style={{ width: 8, height: 8, borderRadius: 999, background: 'rgba(91,94,255,0.45)', animation: 'ragchatbot-bounce 1.1s 0.15s infinite ease-in-out' }} />
-                            <span style={{ width: 8, height: 8, borderRadius: 999, background: 'rgba(91,94,255,0.45)', animation: 'ragchatbot-bounce 1.1s 0.3s infinite ease-in-out' }} />
-                          </div>
-                        ) : message.role === 'user' ? (
-                          <span style={{ whiteSpace: 'pre-wrap' }}>{message.content}</span>
-                        ) : (
-                          <ReactMarkdown components={mdComponents}>{message.content}</ReactMarkdown>
-                        )}
-
-                        {isAssistant && !isEmpty && !isPending && hoveredId === message.id && (
-                          <button
-                            type="button"
-                            onClick={() => handleCopy(message.id, message.content)}
-                            title={copiedId === message.id ? 'Copied!' : 'Copy message'}
-                            style={{
-                              position: 'absolute',
-                              top: -8,
-                              right: -8,
-                              width: 22,
-                              height: 22,
-                              borderRadius: 999,
-                              border: '1px solid rgba(15,23,42,0.08)',
-                              background: '#FFFFFF',
-                              color: copiedId === message.id ? '#34C759' : '#6E6E73',
-                              cursor: 'pointer',
-                              display: 'grid',
-                              placeItems: 'center',
-                              boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
-                            }}
-                          >
-                            {copiedId === message.id ? <Check size={11} /> : <Copy size={11} />}
-                          </button>
-                        )}
-
-                        {isAssistant && message.sources && message.sources.length > 0 && (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-                            {message.sources.slice(0, 4).map((source, srcIdx) => (
-                              <span
-                                key={`${message.id}-src-${srcIdx}`}
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  borderRadius: 999,
-                                  fontSize: 11,
-                                  lineHeight: 1.2,
-                                  background: 'rgba(91,94,255,0.08)',
-                                  color: settings.primaryColor,
-                                  padding: '6px 10px',
-                                }}
-                              >
-                                {sourceLabel(source)}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-
-                        {isAssistant && message.suggested_questions && message.suggested_questions.length > 0 && (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-                            {message.suggested_questions.slice(0, 3).map((question, qIdx) => (
-                              <button
-                                key={`${message.id}-q-${qIdx}`}
-                                type="button"
-                                disabled={isLoading}
-                                onClick={() => handleSend(question)}
-                                style={{
-                                  borderRadius: 999,
-                                  border: `1px solid ${settings.primaryColor}33`,
-                                  background: '#FFFFFF',
-                                  color: '#1D1D1F',
-                                  fontSize: 11,
-                                  lineHeight: 1.2,
-                                  padding: '7px 10px',
-                                  cursor: isLoading ? 'default' : 'pointer',
-                                  opacity: isLoading ? 0.5 : 1,
-                                }}
-                              >
-                                {question}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+            <div style={{ flex: 1, overflow: 'hidden', background: '#FFFFFF' }}>
+              <MessageList
+                messages={surfaceMessages}
+                agentExecutions={[]}
+                showAgentExecutions={false}
+                isLoading={(isLoading || isStreaming) && settings.showTypingIndicator}
+                assistantAvatarUrl={settings.avatarUrl}
+                assistantName={settings.botName}
+                compact
+                showMessageMeta
+                onSuggestionClick={handleSend}
+              />
             </div>
 
             <div style={{ padding: 12, borderTop: '1px solid rgba(15,23,42,0.06)', background: 'rgba(255,255,255,0.96)' }}>
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, border: '1px solid rgba(15,23,42,0.1)', borderRadius: 999, background: '#FFFFFF', padding: '8px 8px 8px 14px' }}>
+              <div
+                className="rag-widget-input-shell"
+                style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid rgba(15,23,42,0.1)', borderRadius: 999, background: '#FFFFFF', padding: '4px 4px 4px 14px' }}
+              >
                 <textarea
                   value={inputValue}
                   onChange={(event) => setInputValue(event.target.value)}
@@ -570,6 +378,9 @@ export function WidgetChatSurface({
                     flex: 1,
                     minHeight: 24,
                     maxHeight: 120,
+                    padding: '8px 0',
+                    margin: 0,
+                    display: 'block',
                     resize: 'none',
                     border: 0,
                     outline: 'none',
@@ -577,7 +388,7 @@ export function WidgetChatSurface({
                     color: '#1D1D1F',
                     fontFamily: resolvedFont,
                     fontSize: 14,
-                    lineHeight: 1.45,
+                    lineHeight: 1.3,
                   }}
                 />
                 <button
@@ -617,41 +428,21 @@ export function WidgetChatSurface({
         <button
           type="button"
           onClick={() => setIsOpen((prev) => !prev)}
-          style={
-            preview
-              ? {
-                  width: 56,
-                  height: 56,
-                  borderRadius: 999,
-                  border: 0,
-                  background: settings.primaryColor,
-                  color: '#FFFFFF',
-                  display: 'grid',
-                  placeItems: 'center',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
-                  cursor: 'pointer',
-                }
-              : {
-                  border: 0,
-                  borderRadius: 999,
-                  background: settings.primaryColor,
-                  color: '#FFFFFF',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '14px 16px',
-                  cursor: 'pointer',
-                  fontFamily: resolvedFont,
-                  fontSize: 14,
-                  fontWeight: 600,
-                  maxWidth: 'calc(100vw - 16px)',
-                }
-          }
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 999,
+            border: 0,
+            background: settings.primaryColor,
+            color: '#FFFFFF',
+            display: 'grid',
+            placeItems: 'center',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+            cursor: 'pointer',
+          }}
           aria-label={isOpen ? `Close ${settings.botName}` : settings.buttonText || `Open ${settings.botName}`}
         >
           <BubbleIcon color="#FFFFFF" />
-          {!preview && <span>{settings.buttonText || 'Chat with us'}</span>}
         </button>
       </div>
     </div>

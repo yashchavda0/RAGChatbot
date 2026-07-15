@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useEffect, useRef, memo } from 'react';
+import { useEffect, useRef, memo } from 'react';
 import { Bot, Sparkles, MessageSquare, FileText, Globe, Image as ImageIcon } from 'lucide-react';
-import { ChatMessage, AgentExecution } from '@/types';
+import type { ChatMessage, AgentExecution } from '@ragchatbot/shared-types';
 import { MessageBubble } from './MessageBubble';
 import { AgentExecutionCard } from './AgentExecutionCard';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { cn } from '@/lib/utils';
+import { ScrollArea } from './scroll-area';
+import { cn } from '../utils';
 
 interface MessageListProps {
   messages: ChatMessage[];
@@ -47,7 +47,8 @@ export const MessageList = memo(function MessageList({
       (message) => message.role === 'assistant' && message.content.trim().length === 0,
     );
 
-  // Always scroll on a new user message; otherwise only auto-scroll when near bottom.
+  // Always scroll on a new user message or a new pending assistant (loader) message,
+  // no matter where the user has scrolled to; otherwise only auto-scroll when near bottom.
   useEffect(() => {
     const viewport = scrollAreaRef.current?.querySelector(
       '[data-radix-scroll-area-viewport]'
@@ -57,10 +58,13 @@ export const MessageList = memo(function MessageList({
 
     const lastMessage = messages[messages.length - 1];
     const messageCountIncreased = messages.length > previousMessageCountRef.current;
-    const isNewUserMessage = messageCountIncreased && lastMessage?.role === 'user';
+    const isNewOutgoingOrPending =
+      messageCountIncreased &&
+      (lastMessage?.role === 'user' ||
+        (lastMessage?.role === 'assistant' && lastMessage.content.trim().length === 0));
     previousMessageCountRef.current = messages.length;
 
-    if (isNewUserMessage) {
+    if (isNewOutgoingOrPending) {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
       return;
     }

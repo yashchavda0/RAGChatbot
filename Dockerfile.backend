@@ -19,9 +19,11 @@ FROM base AS prod-deps
 
 COPY backend/requirements.txt .
 
+# Install torch CPU-only first, then requirements with extra-index-url to prefer CPU builds
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv venv /opt/venv && \
-    uv pip install -r requirements.txt --python /opt/venv/bin/python
+    uv pip install --python /opt/venv/bin/python -r requirements.txt \
+    --extra-index-url https://download.pytorch.org/whl/cpu
 
 # ============================================
 # Stage 3: Dev deps - extends prod deps with dev packages
@@ -42,7 +44,7 @@ COPY --from=dev-deps /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 COPY backend/docker-entrypoint.sh /app/docker-entrypoint.sh
-RUN chmod +x /app/docker-entrypoint.sh
+RUN sed -i 's/\r$//' /app/docker-entrypoint.sh && chmod +x /app/docker-entrypoint.sh
 
 RUN mkdir -p /app/data /app/logs
 
@@ -55,7 +57,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 # ============================================
 # Stage 5: Production - slim runtime
@@ -66,7 +68,7 @@ COPY --from=prod-deps /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 COPY backend/ .
-RUN chmod +x /app/docker-entrypoint.sh
+RUN sed -i 's/\r$//' /app/docker-entrypoint.sh && chmod +x /app/docker-entrypoint.sh
 
 RUN mkdir -p /app/data /app/logs && \
     useradd --create-home --shell /bin/bash appuser && \
@@ -80,8 +82,8 @@ HEALTHCHECK --interval=15s --timeout=10s --start-period=30s --retries=3 \
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    EMBEDDING_MODELS='["gemini-text-embedding-004"]' \
-    DEFAULT_EMBEDDING_MODEL=gemini-text-embedding-004
+    EMBEDDING_MODELS='["gemini-embedding-001"]' \
+    DEFAULT_EMBEDDING_MODEL=gemini-embedding-001
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

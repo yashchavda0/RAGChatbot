@@ -20,7 +20,7 @@ import {
   WidgetSurfaceSettings,
   DEFAULT_WIDGET_SETTINGS,
   normalizeWidgetSettings,
-} from '@/components/widget/WidgetChatSurface';
+} from '@ragchatbot/shared-ui';
 import { cn } from '@/lib/utils';
 
 type TabId = 'script' | 'npm' | 'react';

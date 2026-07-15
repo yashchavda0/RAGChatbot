@@ -3,9 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "description": "Root build orchestration for the RAG Chatbot platform (widget + frontend).",
+  "workspaces": ["frontend", "packages/*"],
   "scripts": {
-    "build:widget": "cd widget-builder && npm install && npm run build && cd .. && node scripts/copy-widget.js",
-    "build:frontend": "cd frontend && npm run build",
+    "build:widget": "npm run build --workspace=packages/widget && node scripts/copy-widget.js",
+    "build:frontend": "npm run build --workspace=frontend",
     "build": "npm run build:widget && npm run build:frontend",
     "build:all": "npm run build"
   }

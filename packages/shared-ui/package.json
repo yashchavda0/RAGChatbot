@@ -1,0 +1,23 @@
+{
+  "name": "@ragchatbot/shared-ui",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "types": "./src/index.ts",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./utils": "./src/utils.ts",
+    "./styles.css": "./src/styles.css"
+  },
+  "dependencies": {
+    "lucide-react": "^0.344.0",
+    "react-markdown": "^9.0.0",
+    "@radix-ui/react-scroll-area": "^1.0.5",
+    "@ragchatbot/shared-types": "*"
+  },
+  "peerDependencies": {
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0"
+  }
+}

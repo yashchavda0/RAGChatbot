@@ -16,8 +16,7 @@ import {
   X,
   MoreVertical,
 } from 'lucide-react';
-import { useChat } from '@/hooks/useChat';
-import { MessageList } from '@/components/chat/MessageList';
+import { useChat, MessageList } from '@ragchatbot/shared-ui';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { DocumentUpload } from '@/components/documents/DocumentUpload';
 import { cn } from '@/lib/utils';
