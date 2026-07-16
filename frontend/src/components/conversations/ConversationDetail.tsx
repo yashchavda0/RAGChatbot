@@ -1,4 +1,5 @@
 import { MessageCircle } from 'lucide-react';
+import { ScrollArea } from '@ragchatbot/shared-ui';
 import { ConversationDetail } from '@/types/conversation';
 import { MessageThread } from './MessageThread';
 import { useEffect, useRef, useState } from 'react';
@@ -36,16 +37,19 @@ export function ConversationDetailComponent({ conversation, isLoading }: Convers
   if (isLoading) {
     return (
       <div className="h-full flex flex-col overflow-hidden">
-        <div className="p-6 border-b border-[#E5E5EA] bg-white">
-          <div className="space-y-4 animate-pulse">
-            <div className="h-6 bg-[#E5E5EA] rounded w-1/4" />
-            <div className="h-4 bg-[#F5F5F7] rounded w-1/3" />
+        <div className="px-4 py-3 border-b border-black/[0.06] bg-[#F5F5F7]/50">
+          <div className="flex items-center gap-3 animate-pulse">
+            <div className="w-8 h-8 rounded-full bg-black/[0.06]" />
+            <div className="space-y-2">
+              <div className="h-3.5 bg-black/[0.06] rounded w-32" />
+              <div className="h-3 bg-black/[0.04] rounded w-24" />
+            </div>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto p-6 bg-[#FAFAFA]">
-          <div className="space-y-2">
+        <div className="flex-1 overflow-y-auto p-6 bg-[#F5F5F7]/30">
+          <div className="space-y-3 max-w-3xl mx-auto">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-12 bg-[#F5F5F7] rounded" />
+              <div key={i} className="h-12 bg-white rounded-2xl" />
             ))}
           </div>
         </div>
@@ -57,8 +61,11 @@ export function ConversationDetailComponent({ conversation, isLoading }: Convers
     return (
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="text-center">
-          <MessageCircle className="w-12 h-12 text-[#D2D2D7] mx-auto mb-4" />
-          <p className="text-[#86868B]">Select a conversation to view details</p>
+          <div className="w-16 h-16 rounded-full bg-[#5B5EFF]/10 flex items-center justify-center mx-auto mb-4">
+            <MessageCircle className="w-7 h-7 text-[#5B5EFF]" />
+          </div>
+          <p className="text-sm font-medium text-[#1D1D1F]">Select a conversation</p>
+          <p className="text-xs text-[#6E6E73] mt-1">Choose a conversation from the list to view its messages.</p>
         </div>
       </div>
     );
@@ -66,18 +73,25 @@ export function ConversationDetailComponent({ conversation, isLoading }: Convers
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      {/* Thin info bar */}
-      <div className="px-4 py-2.5 border-b border-[#E5E5EA] bg-white flex-shrink-0 flex items-center gap-2 text-xs text-[#86868B]">
-        <MessageCircle className="w-3.5 h-3.5 text-[#5B5EFF]" />
-        <span className="text-[#1D1D1F] font-medium">{conversation.message_count} messages</span>
-        <span>·</span>
-        <span>{formatDate(conversation.started_at)}</span>
+      {/* Header bar */}
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-black/[0.06] bg-[#F5F5F7]/50 flex-shrink-0">
+        <div className="w-8 h-8 rounded-full bg-[#5B5EFF]/10 flex items-center justify-center">
+          <MessageCircle className="w-4 h-4 text-[#5B5EFF]" />
+        </div>
+        <div>
+          <h2 className="text-sm font-semibold text-[#1D1D1F]">Conversation</h2>
+          <p className="text-xs text-[#6E6E73]">
+            {conversation.message_count} messages · {formatDate(conversation.started_at)}
+          </p>
+        </div>
       </div>
 
-      {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto p-4 bg-[#FAFAFA]">
-        <MessageThread messages={conversation.messages} />
-        <div ref={messagesEndRef} />
+      {/* Messages */}
+      <div className="flex-1 min-h-0 bg-[#F5F5F7]/30">
+        <ScrollArea className="h-full w-full scrollbar-thin">
+          <MessageThread messages={conversation.messages} />
+          <div ref={messagesEndRef} />
+        </ScrollArea>
       </div>
     </div>
   );

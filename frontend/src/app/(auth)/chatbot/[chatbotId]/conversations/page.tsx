@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
+import { AlertCircle } from 'lucide-react';
+import { GlassCard } from '@/components/shared/GlassCard';
 import { useConversationStore } from '@/stores/conversationStore';
 import { conversationApi } from '@/lib/conversationApi';
 import { ConversationFiltersComponent } from '@/components/conversations/ConversationFilters';
@@ -87,30 +89,35 @@ export default function ConversationsPage({ params }: ConversationsPageProps) {
   };
 
   return (
-    <div className="h-[calc(100vh-108px)] flex flex-col space-y-2">
-      {/* Title + Filters inline */}
-      <div className="flex items-center justify-between gap-4 flex-shrink-0">
-        <h1 className="text-lg font-semibold text-[#1D1D1F]">Conversations</h1>
-        <ConversationFiltersComponent
-          filters={filters}
-          onFiltersChange={(newFilters) => {
-            setFilters(newFilters);
-            setPagination({ ...pagination, page: 1 });
-          }}
-        />
+    <div className="h-full flex flex-col gap-6 animate-fade-in">
+      {/* Page Header */}
+      <div className="flex-shrink-0">
+        <h1 className="text-2xl font-bold text-[#1D1D1F]">Conversations</h1>
+        <p className="text-[#6E6E73] mt-1">Browse and review past conversations with this chatbot</p>
       </div>
 
       {/* Error Message */}
       {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+        <div className="flex items-center gap-2 p-3 bg-[#FF3B30]/10 border border-[#FF3B30]/20 rounded-xl text-[#FF3B30] text-sm flex-shrink-0">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
           {error}
         </div>
       )}
 
       {/* Two-pane Layout */}
-      <div className="flex-1 flex gap-4 min-h-0">
+      <div className="flex-1 flex gap-6 min-h-0">
         {/* Conversation List */}
-        <div className="w-1/3 bg-white rounded-xl border border-[#E5E5EA] overflow-hidden">
+        <GlassCard variant="default" padding="none" className="w-full max-w-sm flex flex-col overflow-hidden min-h-0">
+          <div className="p-4 border-b border-black/[0.06] flex-shrink-0">
+            <p className="text-xs text-[#6E6E73] mb-3">{pagination.total} conversation{pagination.total !== 1 ? 's' : ''}</p>
+            <ConversationFiltersComponent
+              filters={filters}
+              onFiltersChange={(newFilters) => {
+                setFilters(newFilters);
+                setPagination({ ...pagination, page: 1 });
+              }}
+            />
+          </div>
           <ConversationList
             conversations={conversations}
             selectedSessionId={selectedConversation?.session_id || null}
@@ -119,15 +126,15 @@ export default function ConversationsPage({ params }: ConversationsPageProps) {
             pagination={pagination}
             onPageChange={handlePageChange}
           />
-        </div>
+        </GlassCard>
 
         {/* Conversation Detail */}
-        <div className="flex-1 flex flex-col bg-white rounded-xl border border-[#E5E5EA] overflow-hidden">
+        <GlassCard variant="default" padding="none" className="flex-1 flex flex-col overflow-hidden min-h-0">
           <ConversationDetailComponent
             conversation={selectedConversation}
             isLoading={isLoadingDetail}
           />
-        </div>
+        </GlassCard>
       </div>
     </div>
   );

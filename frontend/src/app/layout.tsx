@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
-import '@ragchatbot/shared-ui/styles.css';
+// A plain relative import (not the package's "./styles.css" export) — Next.js's
+// webpack CSS pipeline doesn't reliably resolve subpath `exports` for symlinked
+// npm-workspace packages, so this sidesteps that instead of fighting it.
+import '../../../packages/shared-ui/src/styles.css';
 
 const inter = Inter({
   subsets: ['latin'],

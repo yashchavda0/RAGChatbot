@@ -1,10 +1,18 @@
 import { Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { ConversationFilters } from '@/types/conversation';
 
 interface ConversationFiltersProps {
   filters: ConversationFilters;
   onFiltersChange: (filters: ConversationFilters) => void;
 }
+
+const SORT_OPTIONS: { value: ConversationFilters['sortBy']; label: string }[] = [
+  { value: 'newest', label: 'Newest' },
+  { value: 'oldest', label: 'Oldest' },
+];
 
 export function ConversationFiltersComponent({ filters, onFiltersChange }: ConversationFiltersProps) {
   const handleSearchChange = (value: string) => {
@@ -22,34 +30,41 @@ export function ConversationFiltersComponent({ filters, onFiltersChange }: Conve
   };
 
   return (
-    <div className="flex gap-4 items-center p-4 bg-white rounded-xl border border-[#E5E5EA]">
-      <div className="flex-1 relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#86868B]" />
-        <input
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        <Input
           type="text"
           placeholder="Search conversations..."
           value={filters.search}
           onChange={(e) => handleSearchChange(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 rounded-lg border border-[#E5E5EA] focus:outline-none focus:border-[#5B5EFF] text-sm"
+          icon={<Search className="w-4 h-4" />}
+          className="flex-1"
         />
+
+        <div className="flex items-center gap-0.5 p-0.5 rounded-lg border border-black/[0.06] bg-[#F5F5F7]">
+          {SORT_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              onClick={() => onFiltersChange({ ...filters, sortBy: option.value })}
+              className={cn(
+                'px-2.5 py-1.5 text-xs font-medium rounded-md transition-all duration-200',
+                filters.sortBy === option.value
+                  ? 'bg-white shadow-sm text-[#1D1D1F]'
+                  : 'text-[#6E6E73] hover:text-[#1D1D1F]'
+              )}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <select
-        value={filters.sortBy}
-        onChange={(e) => onFiltersChange({ ...filters, sortBy: e.target.value as 'newest' | 'oldest' })}
-        className="px-3 py-2 rounded-lg border border-[#E5E5EA] focus:outline-none focus:border-[#5B5EFF] text-sm bg-white"
-      >
-        <option value="newest">Newest First</option>
-        <option value="oldest">Oldest First</option>
-      </select>
-
-      {(filters.search) && (
-        <button
-          onClick={handleClearFilters}
-          className="px-3 py-2 text-sm text-[#5B5EFF] hover:bg-[#5B5EFF]/10 rounded-lg transition"
-        >
-          Clear
-        </button>
+      {filters.search && (
+        <div className="flex justify-end">
+          <Button variant="ghost" size="sm" onClick={handleClearFilters}>
+            Clear filters
+          </Button>
+        </div>
       )}
     </div>
   );
