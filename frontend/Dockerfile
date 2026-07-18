@@ -48,8 +48,15 @@ WORKDIR /app
 COPY packages ./packages
 COPY frontend ./frontend
 
+# NEXT_PUBLIC_* are inlined into the browser bundle at build time — pass the
+# public host in as build args so the shipped UI calls the right API origin.
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_WS_URL
+
 ENV NEXT_TELEMETRY_DISABLED=1 \
-    NODE_ENV=production
+    NODE_ENV=production \
+    NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL} \
+    NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}
 
 RUN --mount=type=cache,target=/app/frontend/.next/cache \
     npm run build --workspace=frontend

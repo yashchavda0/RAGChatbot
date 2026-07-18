@@ -12,6 +12,9 @@ export type {
   WSChatMessage,
 } from "@ragchatbot/shared-types";
 
+// Also import (not just re-export) the names used in local interfaces below.
+import type { AgentExecution } from "@ragchatbot/shared-types";
+
 // Agent Types
 export interface Agent {
   agent_id: string;

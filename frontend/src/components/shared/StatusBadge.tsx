@@ -2,10 +2,10 @@
 
 import { cn } from '@/lib/utils';
 import type { ChatbotStatus } from '@/types/chatbot';
-import type { Conversation } from '@/types/conversation';
 
 interface StatusBadgeProps {
-  status: ChatbotStatus | Conversation['status'] | string;
+  // `| string` intentionally accepts conversation statuses and any other free-form status
+  status: ChatbotStatus | string;
   size?: 'sm' | 'md' | 'lg';
   showDot?: boolean;
   className?: string;
