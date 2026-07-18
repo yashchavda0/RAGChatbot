@@ -332,10 +332,11 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./frontend/src:/app/src
-      - ./frontend/public:/app/public
+      - ./frontend/src:/app/frontend/src
+      - ./frontend/public:/app/frontend/public
+      - ./packages:/app/packages
       - /app/node_modules
-      - /app/.next
+      - /app/frontend/.next
     depends_on:
       backend:
         condition: service_healthy
