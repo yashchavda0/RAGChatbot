@@ -3,6 +3,10 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
 
+  // These workspace packages ship raw TS/TSX source (no build step) — Next.js
+  // needs to be told to run them through its own compiler like local source.
+  transpilePackages: ['@ragchatbot/shared-ui', '@ragchatbot/shared-types'],
+
   // Environment variables exposed to the browser
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',

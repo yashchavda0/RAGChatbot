@@ -1,11 +1,17 @@
 # ============================================
-# Stage 1: Dependencies (cached by package.json hash)
+# Stage 1: Dependencies (monorepo workspace install)
 # ============================================
 FROM node:18-alpine AS deps
 
 WORKDIR /app
 
-COPY frontend/package.json frontend/package-lock.json* ./
+# Copy root + every workspace manifest first for better layer caching.
+# npm ci at the root installs all workspaces and creates the @ragchatbot/* symlinks.
+COPY package.json package-lock.json ./
+COPY frontend/package.json ./frontend/
+COPY packages/shared-ui/package.json ./packages/shared-ui/
+COPY packages/shared-types/package.json ./packages/shared-types/
+COPY packages/widget/package.json ./packages/widget/
 
 RUN --mount=type=cache,target=/root/.npm \
     npm ci
@@ -17,9 +23,9 @@ FROM deps AS development
 
 WORKDIR /app
 
-# Only copy config files — source is mounted via docker-compose volumes
-COPY frontend/next.config.mjs frontend/tsconfig.json frontend/postcss.config.js frontend/tailwind.config.ts ./
-COPY frontend/package.json ./
+# Workspace source is needed in the image; live frontend source comes via volume mounts.
+COPY packages ./packages
+COPY frontend/next.config.mjs frontend/tsconfig.json frontend/postcss.config.js frontend/tailwind.config.ts frontend/package.json ./frontend/
 
 ENV NEXT_TELEMETRY_DISABLED=1 \
     NODE_ENV=development \
@@ -29,6 +35,7 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
 
 EXPOSE 3000
 
+WORKDIR /app/frontend
 CMD ["npm", "run", "dev"]
 
 # ============================================
@@ -38,13 +45,14 @@ FROM deps AS builder
 
 WORKDIR /app
 
-COPY frontend/ .
+COPY packages ./packages
+COPY frontend ./frontend
 
 ENV NEXT_TELEMETRY_DISABLED=1 \
     NODE_ENV=production
 
-RUN --mount=type=cache,target=/app/.next/cache \
-    npm run build
+RUN --mount=type=cache,target=/app/frontend/.next/cache \
+    npm run build --workspace=frontend
 
 # ============================================
 # Stage 4: Runner (Production)
@@ -61,9 +69,11 @@ ENV NODE_ENV=production \
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+# With experimental.outputFileTracingRoot set to the monorepo root, the standalone
+# output preserves the /frontend + /packages layout under .next/standalone.
+COPY --from=builder --chown=nextjs:nodejs /app/frontend/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/frontend/.next/static ./frontend/.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/frontend/public ./frontend/public
 
 USER nextjs
 
@@ -72,4 +82,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=10s --timeout=5s --start-period=20s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3000 || exit 1
 
-CMD ["node", "server.js"]
+CMD ["node", "frontend/server.js"]

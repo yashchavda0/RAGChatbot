@@ -1,8 +1,14 @@
+import path from 'path';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
   reactStrictMode: true,
   swcMinify: true,
+
+  // These workspace packages ship raw TS/TSX source (no build step) — Next.js
+  // needs to be told to run them through its own compiler like local source.
+  transpilePackages: ['@ragchatbot/shared-ui', '@ragchatbot/shared-types'],
 
   // Environment variables exposed to the browser
   env: {
@@ -29,6 +35,10 @@ const nextConfig = {
   // Experimental features for Next.js 14
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+    // Monorepo root so `output: 'standalone'` traces the @ragchatbot/* workspace
+    // packages. When built via `npm run build --workspace=frontend`, cwd is
+    // /app/frontend, so '..' points at the repo root.
+    outputFileTracingRoot: path.join(process.cwd(), '..'),
   },
 };
 

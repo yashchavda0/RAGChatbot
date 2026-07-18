@@ -1450,6 +1450,7 @@ async def list_conversations(
     page: int = 1,
     limit: int = 20,
     search: Optional[str] = None,
+    order: str = "desc",
 ):
     """List all conversation sessions for a chatbot."""
     from services.postgres_service import get_postgres_service
@@ -1482,7 +1483,11 @@ async def list_conversations(
                 )
                 .where(ConversationMessage.chatbot_id == chatbot_id)
                 .group_by(ConversationMessage.session_id)
-                .order_by(func.max(ConversationMessage.timestamp).desc())
+                .order_by(
+                    func.max(ConversationMessage.timestamp).asc()
+                    if order == "asc"
+                    else func.max(ConversationMessage.timestamp).desc()
+                )
             )
 
             # Get total count
