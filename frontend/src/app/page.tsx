@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 import {
   MessageSquare,
@@ -10,145 +12,133 @@ import {
   Sparkles,
   ArrowRight,
   Bot,
-  Workflow,
   ChevronRight,
+  Check,
 } from 'lucide-react';
+import { useAuthStore } from '@/stores/authStore';
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Navigation */}
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
       <Header />
 
-      {/* Main Content */}
       <main id="main-content" className="flex-1">
-        {/* Hero Section */}
         <HeroSection />
-
-        {/* Features Grid */}
         <FeaturesSection />
-
-        {/* How It Works */}
         <HowItWorksSection />
-
-        {/* Tech Stack */}
+        <PricingSection />
         <TechStackSection />
-
-        {/* CTA Section */}
         <CTASection />
       </main>
 
-      {/* Footer */}
       <Footer />
     </div>
   );
 }
 
-// Header Component
+// Header
 function Header() {
+  const { isAuthenticated } = useAuthStore();
+
   return (
-    <header className="sticky top-0 z-50 glass-heavy border-b">
+    <header className="sticky top-0 z-50 glass-heavy border-b border-border">
       <div className="container-responsive h-16 flex items-center justify-between">
-        {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
-            <Network className="h-5 w-5 text-primary-foreground" />
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-primary-400 flex items-center justify-center shadow-lg shadow-primary/20 group-hover:shadow-primary/30 transition-shadow">
+            <Network className="h-5 w-5 text-white" />
           </div>
           <span className="text-base font-semibold tracking-tight">
             RAG Chatbot
           </span>
         </Link>
 
-        {/* Navigation */}
-        <nav className="flex items-center gap-1">
-          <NavLink href="/chat" icon={<MessageSquare className="w-4 h-4" />}>
-            Chat
-          </NavLink>
-          <NavLink href="/agents" icon={<Workflow className="w-4 h-4" />}>
-            Agents
-          </NavLink>
+        <nav className="hidden md:flex items-center gap-1">
+          <AnchorLink href="#features">Features</AnchorLink>
+          <AnchorLink href="#how-it-works">How it works</AnchorLink>
+          <AnchorLink href="#pricing">Pricing</AnchorLink>
         </nav>
+
+        <div className="flex items-center gap-2">
+          {isAuthenticated ? (
+            <Link href="/dashboard" className="btn-primary btn-md">
+              Dashboard
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="hidden sm:inline-flex items-center px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground rounded-full hover:bg-accent transition-all duration-200"
+              >
+                Sign in
+              </Link>
+              <Link href="/signup" className="btn-primary btn-md">
+                Get Started
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </>
+          )}
+        </div>
       </div>
     </header>
   );
 }
 
-function NavLink({
-  href,
-  icon,
-  children,
-}: {
-  href: string;
-  icon?: React.ReactNode;
-  children: React.ReactNode;
-}) {
+function AnchorLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
-    <Link
+    <a
       href={href}
-      className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground rounded-full hover:bg-accent transition-all duration-200"
+      className="inline-flex items-center px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground rounded-full hover:bg-accent transition-all duration-200"
     >
-      {icon}
-      <span className="hidden sm:inline">{children}</span>
-    </Link>
+      {children}
+    </a>
   );
 }
 
-// Hero Section
+// Hero
 function HeroSection() {
   return (
-    <section className="relative overflow-hidden py-20 sm:py-24 lg:py-32">
-      {/* Background Gradient */}
-      <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent pointer-events-none" />
-
-      {/* Decorative Elements */}
-      <div className="absolute top-20 left-1/4 w-72 h-72 bg-primary/10 rounded-full blur-3xl opacity-50" />
-      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl opacity-40" />
+    <section className="relative overflow-hidden py-20 sm:py-28 lg:py-36">
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[40rem] h-[40rem] bg-primary/15 rounded-full blur-3xl opacity-60" />
+        <div className="absolute top-20 left-1/4 w-72 h-72 bg-primary-300/25 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
+      </div>
 
       <div className="container-responsive relative">
         <div className="max-w-4xl mx-auto text-center">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-8 animate-fade-in">
-            <Sparkles className="w-4 h-4" />
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass border border-border text-sm font-medium mb-8 animate-fade-in">
+            <Sparkles className="w-4 h-4 text-primary" />
             <span>Multi-Agent AI System</span>
             <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
           </div>
 
-          {/* Heading */}
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-tight mb-6 animate-slide-up">
             Ask anything.
             <br />
-            <span className="gradient-text">Get intelligent answers.</span>
+            <span className="gradient-text-animated">Get intelligent answers.</span>
           </h1>
 
-          {/* Description */}
           <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 animate-slide-up stagger-1">
-            A powerful RAG chatbot powered by LangGraph agent orchestration.
-            Search documents, browse the web, process images, and get
+            Build a RAG chatbot powered by LangGraph agent orchestration.
+            Search your documents, browse the web, process images, and get
             synthesized answers in real-time.
           </p>
 
-          {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center animate-slide-up stagger-2">
-            <Link
-              href="/chat"
-              className="btn-primary btn-lg group"
-            >
-              <MessageSquare className="w-5 h-5" />
-              Start Chatting
+            <Link href="/signup" className="btn-primary btn-xl group">
+              <Sparkles className="w-5 h-5" />
+              Get Started Free
               <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
             </Link>
-            <Link
-              href="/agents"
-              className="btn-outline btn-lg group"
-            >
-              <Network className="w-5 h-5" />
-              View Agent Workflow
+            <Link href="/chat" className="btn-outline btn-xl group">
+              <MessageSquare className="w-5 h-5" />
+              Live Demo
               <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
             </Link>
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-8 mt-16 pt-8 border-t animate-fade-in stagger-3">
+          <div className="grid grid-cols-3 gap-8 mt-16 pt-8 border-t border-border animate-fade-in stagger-3">
             <StatItem value="6" label="AI Agents" />
             <StatItem value="3" label="Embedding Models" />
             <StatItem value="Real-time" label="Streaming" />
@@ -170,7 +160,7 @@ function StatItem({ value, label }: { value: string; label: string }) {
   );
 }
 
-// Features Section
+// Features
 function FeaturesSection() {
   const features = [
     {
@@ -178,49 +168,42 @@ function FeaturesSection() {
       title: 'Smart Chat',
       description:
         'Natural conversations with intent-based routing and intelligent plan generation for complex queries.',
-      color: 'primary',
     },
     {
       icon: <FileText className="w-6 h-6" />,
       title: 'Document Search',
       description:
         'Multi-model embeddings with BAAI reranker for precise retrieval from your knowledge base.',
-      color: 'info',
     },
     {
       icon: <Globe className="w-6 h-6" />,
       title: 'Web Search',
       description:
         'Real-time web search with Tavily API integration and intelligent content extraction.',
-      color: 'success',
     },
     {
       icon: <ImageIcon className="w-6 h-6" />,
       title: 'OCR Support',
       description:
         'Extract and analyze text from images using PaddleOCR vision processing.',
-      color: 'warning',
     },
     {
       icon: <Network className="w-6 h-6" />,
       title: 'Agent Workflow',
       description:
         'Visualize agent orchestration with real-time execution tracking and status updates.',
-      color: 'primary',
     },
     {
       icon: <Zap className="w-6 h-6" />,
       title: 'Streaming Response',
       description:
         'WebSocket streaming for instant feedback and progressive response rendering.',
-      color: 'info',
     },
   ];
 
   return (
-    <section className="py-20 sm:py-24 bg-muted/30">
+    <section id="features" className="py-20 sm:py-24 border-t border-border">
       <div className="container-responsive">
-        {/* Section Header */}
         <div className="text-center mb-16">
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
             Powerful Features
@@ -231,14 +214,9 @@ function FeaturesSection() {
           </p>
         </div>
 
-        {/* Features Grid */}
         <div className="grid-auto-fit">
           {features.map((feature, index) => (
-            <FeatureCard
-              key={feature.title}
-              {...feature}
-              index={index}
-            />
+            <FeatureCard key={feature.title} {...feature} index={index} />
           ))}
         </div>
       </div>
@@ -250,30 +228,19 @@ function FeatureCard({
   icon,
   title,
   description,
-  color,
   index,
 }: {
   icon: React.ReactNode;
   title: string;
   description: string;
-  color: string;
   index: number;
 }) {
-  const colorClasses: Record<string, string> = {
-    primary: 'bg-primary/10 text-primary',
-    info: 'bg-info/10 text-info',
-    success: 'bg-success/10 text-success',
-    warning: 'bg-warning/10 text-warning',
-  };
-
   return (
     <div
-      className={`card card-hover p-6 animate-slide-up`}
+      className="glass rounded-2xl p-6 border border-border hover:border-primary/40 transition-colors animate-slide-up"
       style={{ animationDelay: `${index * 50}ms` }}
     >
-      <div
-        className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${colorClasses[color]}`}
-      >
+      <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 bg-primary/10 text-primary">
         {icon}
       </div>
       <h3 className="text-lg font-semibold mb-2 tracking-tight">{title}</h3>
@@ -284,7 +251,7 @@ function FeatureCard({
   );
 }
 
-// How It Works Section
+// How It Works
 function HowItWorksSection() {
   const steps = [
     {
@@ -318,9 +285,8 @@ function HowItWorksSection() {
   ];
 
   return (
-    <section className="py-20 sm:py-24">
+    <section id="how-it-works" className="py-20 sm:py-24 border-t border-border">
       <div className="container-responsive">
-        {/* Section Header */}
         <div className="text-center mb-16">
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
             How It Works
@@ -331,7 +297,6 @@ function HowItWorksSection() {
           </p>
         </div>
 
-        {/* Steps */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {steps.map((step, index) => (
             <div
@@ -339,23 +304,20 @@ function HowItWorksSection() {
               className="relative animate-slide-up"
               style={{ animationDelay: `${index * 100}ms` }}
             >
-              {/* Connector Line (not on last item) */}
               {index < steps.length - 1 && (
-                <div className="hidden lg:block absolute top-10 left-[60%] w-[80%] h-[2px] bg-gradient-to-r from-primary/30 to-primary/10" />
+                <div className="hidden lg:block absolute top-10 left-[60%] w-[80%] h-[2px] bg-gradient-to-r from-primary/40 to-primary/5" />
               )}
 
               <div className="flex flex-col items-center text-center">
-                {/* Step Number */}
                 <div className="relative mb-4">
                   <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
                     <div className="text-primary">{step.icon}</div>
                   </div>
-                  <div className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
+                  <div className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-gradient-to-br from-primary to-primary-600 text-white text-xs font-bold flex items-center justify-center">
                     {step.step}
                   </div>
                 </div>
 
-                {/* Content */}
                 <h3 className="text-base font-semibold mb-2">{step.title}</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   {step.description}
@@ -369,21 +331,110 @@ function HowItWorksSection() {
   );
 }
 
-// Tech Stack Section
-function TechStackSection() {
-  const technologies = [
-    { name: 'Next.js 14', category: 'Frontend' },
-    { name: 'LangGraph', category: 'AI' },
-    { name: 'Gemini', category: 'LLM' },
-    { name: 'Milvus', category: 'Vector DB' },
-    { name: 'Tavily', category: 'Search' },
-    { name: 'PaddleOCR', category: 'Vision' },
-    { name: 'PostgreSQL', category: 'Database' },
-    { name: 'WebSocket', category: 'Real-time' },
+// Pricing
+function PricingSection() {
+  const plans = [
+    {
+      name: 'Free',
+      price: '$0',
+      period: 'forever',
+      description: 'Try out the platform with a single chatbot.',
+      features: ['1 chatbot', '100 messages / month', 'Document search', 'Web search fallback'],
+      cta: 'Get Started Free',
+      href: '/signup',
+      highlighted: false,
+    },
+    {
+      name: 'Pro',
+      price: '$29',
+      period: 'per month',
+      description: 'For teams running multiple chatbots in production.',
+      features: [
+        '10 chatbots',
+        '10,000 messages / month',
+        'Document search + reranking',
+        'Web search, OCR & URL processing',
+        'Priority support',
+      ],
+      cta: 'Start Pro Trial',
+      href: '/signup?plan=pro',
+      highlighted: true,
+    },
   ];
 
   return (
-    <section className="py-20 sm:py-24 bg-muted/30">
+    <section id="pricing" className="py-20 sm:py-24 border-t border-border">
+      <div className="container-responsive">
+        <div className="text-center mb-16">
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
+            Simple, transparent pricing
+          </h2>
+          <p className="text-muted-foreground max-w-2xl mx-auto">
+            Start free, upgrade when you need more chatbots and headroom.
+          </p>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-6 max-w-3xl mx-auto">
+          {plans.map((plan) => (
+            <div
+              key={plan.name}
+              className={
+                plan.highlighted
+                  ? 'relative rounded-2xl p-8 bg-primary/5 border-2 border-primary shadow-2xl shadow-primary/10'
+                  : 'relative rounded-2xl p-8 glass border border-border'
+              }
+            >
+              {plan.highlighted && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-gradient-to-r from-primary to-primary-600 text-white text-xs font-semibold">
+                  Most Popular
+                </div>
+              )}
+
+              <h3 className="text-lg font-semibold">{plan.name}</h3>
+              <div className="mt-4 flex items-baseline gap-1">
+                <span className="text-4xl font-bold tracking-tight">{plan.price}</span>
+                <span className="text-sm text-muted-foreground">/ {plan.period}</span>
+              </div>
+              <p className="mt-3 text-sm text-muted-foreground">{plan.description}</p>
+
+              <ul className="mt-6 space-y-3">
+                {plan.features.map((feature) => (
+                  <li key={feature} className="flex items-start gap-2.5 text-sm">
+                    <Check className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <Link
+                href={plan.href}
+                className={plan.highlighted ? 'btn-primary btn-lg w-full mt-8' : 'btn-outline btn-lg w-full mt-8'}
+              >
+                {plan.cta}
+              </Link>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// Tech Stack
+function TechStackSection() {
+  const technologies = [
+    { name: 'Next.js 14' },
+    { name: 'LangGraph' },
+    { name: 'Gemini' },
+    { name: 'Milvus' },
+    { name: 'Tavily' },
+    { name: 'PaddleOCR' },
+    { name: 'PostgreSQL' },
+    { name: 'WebSocket' },
+  ];
+
+  return (
+    <section className="py-20 sm:py-24 border-t border-border">
       <div className="container-responsive">
         <div className="text-center">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-6">
@@ -393,7 +444,7 @@ function TechStackSection() {
             {technologies.map((tech) => (
               <div
                 key={tech.name}
-                className="card-flat px-4 py-2 hover:border-primary/30 transition-colors cursor-default"
+                className="card-flat px-4 py-2 hover:border-primary/40 transition-colors cursor-default"
               >
                 <span className="text-sm font-medium">{tech.name}</span>
               </div>
@@ -405,32 +456,31 @@ function TechStackSection() {
   );
 }
 
-// CTA Section
+// CTA
 function CTASection() {
   return (
     <section className="py-20 sm:py-24">
       <div className="container-responsive">
         <div className="relative overflow-hidden rounded-3xl bg-primary p-8 sm:p-12 lg:p-16 text-center">
-          {/* Background Pattern */}
-          <div className="absolute inset-0 opacity-10">
+          <div className="absolute inset-0 opacity-10 pointer-events-none">
             <div className="absolute top-0 left-0 w-40 h-40 bg-white rounded-full blur-3xl" />
             <div className="absolute bottom-0 right-0 w-60 h-60 bg-white rounded-full blur-3xl" />
           </div>
 
           <div className="relative">
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary-foreground mb-4">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-4">
               Ready to get started?
             </h2>
-            <p className="text-primary-foreground/80 max-w-xl mx-auto mb-8">
+            <p className="text-white/80 max-w-xl mx-auto mb-8">
               Experience the power of multi-agent AI with intelligent document
               search and real-time web capabilities.
             </p>
             <Link
-              href="/chat"
-              className="inline-flex items-center gap-2 h-12 px-8 rounded-full bg-primary-foreground text-primary font-semibold hover:bg-white/90 transition-colors shadow-lg"
+              href="/signup"
+              className="inline-flex items-center gap-2 h-12 px-8 rounded-full bg-white text-primary font-semibold hover:bg-white/90 transition-colors shadow-lg"
             >
-              <MessageSquare className="w-5 h-5" />
-              Start Chatting Now
+              <Sparkles className="w-5 h-5" />
+              Get Started Now
             </Link>
           </div>
         </div>
@@ -439,10 +489,10 @@ function CTASection() {
   );
 }
 
-// Footer Component
+// Footer
 function Footer() {
   return (
-    <footer className="border-t py-8">
+    <footer className="border-t border-border py-8">
       <div className="container-responsive">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
@@ -452,17 +502,17 @@ function Footer() {
             </span>
           </div>
           <div className="flex items-center gap-6">
-            <Link
-              href="/chat"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
+            <Link href="/chat" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Chat
             </Link>
-            <Link
-              href="/agents"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
+            <Link href="/agents" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Agents
+            </Link>
+            <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              Sign in
+            </Link>
+            <Link href="/signup" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              Sign up
             </Link>
           </div>
         </div>

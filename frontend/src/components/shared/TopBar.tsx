@@ -2,10 +2,28 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/stores/authStore';
 
 export function TopBar() {
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const router = useRouter();
+  const { user, logout } = useAuthStore();
+
+  const handleLogout = () => {
+    logout();
+    router.replace('/login');
+  };
+
+  const initials = user?.name
+    ? user.name
+        .split(' ')
+        .map((part) => part[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase()
+    : '?';
 
   return (
     <header className="h-12 bg-white border-b border-black/[0.06] flex items-center justify-between px-6 flex-shrink-0">
@@ -36,7 +54,7 @@ export function TopBar() {
             className="flex items-center gap-2 p-1 rounded-xl hover:bg-[#F5F5F7] transition-colors"
           >
             <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#5B5EFF] to-[#8B7FFF] flex items-center justify-center">
-              <span className="text-xs font-medium text-white">JD</span>
+              <span className="text-xs font-medium text-white">{initials}</span>
             </div>
             <svg
               className={cn('w-3.5 h-3.5 text-[#86868B] transition-transform', showUserMenu && 'rotate-180')}
@@ -53,8 +71,8 @@ export function TopBar() {
               <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
               <div className="absolute right-0 mt-2 w-56 rounded-xl bg-white shadow-lg border border-[#E5E5EA] z-50 overflow-hidden">
                 <div className="p-3 border-b border-[#E5E5EA]">
-                  <p className="font-medium text-[#1D1D1F]">John Doe</p>
-                  <p className="text-sm text-[#86868B]">john@example.com</p>
+                  <p className="font-medium text-[#1D1D1F]">{user?.name || 'Account'}</p>
+                  <p className="text-sm text-[#86868B]">{user?.email || ''}</p>
                 </div>
                 <div className="p-2">
                   <Link
@@ -101,7 +119,10 @@ export function TopBar() {
                   </Link>
                 </div>
                 <div className="p-2 border-t border-[#E5E5EA]">
-                  <button className="flex items-center gap-3 px-3 py-2 w-full rounded-lg hover:bg-[#FF3B30]/5 transition-colors text-left">
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-3 px-3 py-2 w-full rounded-lg hover:bg-[#FF3B30]/5 transition-colors text-left"
+                  >
                     <svg className="w-4 h-4 text-[#FF3B30]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path
                         strokeLinecap="round"

@@ -21,13 +21,13 @@ const AuthInput = React.forwardRef<HTMLInputElement, AuthInputProps>(
       <div className="w-full space-y-2">
         <label
           htmlFor={inputId}
-          className="block text-sm font-medium text-[#1D1D1F]"
+          className="block text-sm font-medium text-foreground"
         >
           {label}
         </label>
         <div className="relative">
           {icon && (
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[#6E6E73]">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
               {icon}
             </div>
           )}
@@ -36,10 +36,10 @@ const AuthInput = React.forwardRef<HTMLInputElement, AuthInputProps>(
             type={isPassword && showPassword ? 'text' : type}
             ref={ref}
             className={cn(
-              'h-12 text-[15px] transition-all duration-200',
+              'h-12 text-[15px] transition-all duration-200 bg-background/50',
               icon && 'pl-11',
               isPassword && 'pr-11',
-              error && 'border-[#FF3B30] focus-visible:ring-[#FF3B30]/20 focus-visible:border-[#FF3B30]/50',
+              error && 'border-destructive focus-visible:ring-destructive/20 focus-visible:border-destructive/50',
               className
             )}
             aria-invalid={error ? 'true' : 'false'}
@@ -50,7 +50,7 @@ const AuthInput = React.forwardRef<HTMLInputElement, AuthInputProps>(
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6E6E73] hover:text-[#1D1D1F] transition-colors"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
               tabIndex={-1}
             >
               {showPassword ? (
@@ -92,7 +92,7 @@ const AuthInput = React.forwardRef<HTMLInputElement, AuthInputProps>(
         {error && (
           <p
             id={`${inputId}-error`}
-            className="text-[13px] text-[#FF3B30] flex items-center gap-1.5 animate-fade-in"
+            className="text-[13px] text-destructive flex items-center gap-1.5 animate-fade-in"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -113,7 +113,7 @@ const AuthInput = React.forwardRef<HTMLInputElement, AuthInputProps>(
           </p>
         )}
         {helperText && !error && (
-          <p className="text-[13px] text-[#6E6E73]">{helperText}</p>
+          <p className="text-[13px] text-muted-foreground">{helperText}</p>
         )}
       </div>
     );

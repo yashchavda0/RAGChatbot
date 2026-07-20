@@ -177,18 +177,24 @@ class MilvusService:
             # Combine API models and local models from settings
             active_models = set(settings.embedding_models + settings.local_embedding_models)
 
-            for model_name in active_models:
-                if model_name in self.EMBEDDING_FIELDS:
-                    config = self.EMBEDDING_FIELDS[model_name]
-                    fields.append(
-                        FieldSchema(
-                            name=config["field"],
-                            dtype=DataType.FLOAT_VECTOR,
-                            dim=config["dim"],
-                        )
+            # Iterate EMBEDDING_FIELDS (fixed dict order) so schema field order
+            # matches the insert data-list order in insert_embeddings. Using the
+            # `active_models` set for iteration would randomize column order and
+            # misalign vectors against the schema on insert.
+            for model_name, config in self.EMBEDDING_FIELDS.items():
+                if model_name not in active_models:
+                    continue
+                fields.append(
+                    FieldSchema(
+                        name=config["field"],
+                        dtype=DataType.FLOAT_VECTOR,
+                        dim=config["dim"],
                     )
-                    logger.info(f"Adding vector field for model: {model_name} (dim={config['dim']})")
-                else:
+                )
+                logger.info(f"Adding vector field for model: {model_name} (dim={config['dim']})")
+
+            for model_name in active_models:
+                if model_name not in self.EMBEDDING_FIELDS:
                     logger.warning(f"Model {model_name} not found in EMBEDDING_FIELDS, skipping")
 
             schema = CollectionSchema(

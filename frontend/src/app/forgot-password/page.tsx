@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { AuthInput } from '@/components/auth/AuthInput';
+import { AuthShell } from '@/components/auth/AuthShell';
 
 // Icons
 const MailIcon = () => (
@@ -119,113 +120,54 @@ export default function ForgotPasswordPage() {
 
   if (isSuccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
-        {/* Background gradient */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#5B5EFF]/5 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-[#5B5EFF]/5 rounded-full blur-3xl" />
-        </div>
+      <AuthShell>
+        <div className="text-center">
+          <SuccessIcon />
+          <h1 className="text-2xl font-semibold text-foreground tracking-tight">
+            Check your email
+          </h1>
+          <p className="mt-3 text-[15px] text-muted-foreground leading-relaxed">
+            We&apos;ve sent a password reset link to{' '}
+            <span className="font-medium text-foreground">{submittedEmail}</span>
+          </p>
+          <p className="mt-4 text-[14px] text-muted-foreground">
+            Didn&apos;t receive the email? Check your spam folder or{' '}
+            <button
+              onClick={() => setIsSuccess(false)}
+              className="text-primary hover:text-primary/80 transition-colors font-medium"
+            >
+              try again
+            </button>
+          </p>
 
-        <div className="relative w-full max-w-md animate-slide-up">
-          {/* Logo */}
-          <div className="text-center mb-8">
-            <Link href="/" className="inline-flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-[#5B5EFF] flex items-center justify-center">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width={22}
-                  height={22}
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="white"
-                  strokeWidth={2.5}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z" />
-                  <path d="M12 6v6l4 2" />
-                </svg>
-              </div>
-              <span className="text-xl font-semibold text-[#1D1D1F]">RAG Chatbot</span>
+          <div className="mt-8 pt-6 border-t border-border">
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-2 text-[14px] text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeftIcon />
+              Back to sign in
             </Link>
           </div>
-
-          {/* Success card */}
-          <div className="glass-heavy rounded-2xl p-8 shadow-apple text-center">
-            <SuccessIcon />
-            <h1 className="text-2xl font-semibold text-[#1D1D1F] tracking-tight">
-              Check your email
-            </h1>
-            <p className="mt-3 text-[15px] text-[#6E6E73] leading-relaxed">
-              We&apos;ve sent a password reset link to{' '}
-              <span className="font-medium text-[#1D1D1F]">{submittedEmail}</span>
-            </p>
-            <p className="mt-4 text-[14px] text-[#6E6E73]">
-              Didn&apos;t receive the email? Check your spam folder or{' '}
-              <button
-                onClick={() => setIsSuccess(false)}
-                className="text-[#5B5EFF] hover:text-[#4040DD] transition-colors font-medium"
-              >
-                try again
-              </button>
-            </p>
-
-            <div className="mt-8 pt-6 border-t border-black/[0.06]">
-              <Link
-                href="/login"
-                className="inline-flex items-center gap-2 text-[14px] text-[#6E6E73] hover:text-[#1D1D1F] transition-colors"
-              >
-                <ArrowLeftIcon />
-                Back to sign in
-              </Link>
-            </div>
-          </div>
         </div>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
-      {/* Background gradient */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#5B5EFF]/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-[#5B5EFF]/5 rounded-full blur-3xl" />
-      </div>
-
-      <div className="relative w-full max-w-md animate-slide-up">
-        {/* Logo and title */}
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-[#5B5EFF] flex items-center justify-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width={22}
-                height={22}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="white"
-                strokeWidth={2.5}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z" />
-                <path d="M12 6v6l4 2" />
-              </svg>
-            </div>
-            <span className="text-xl font-semibold text-[#1D1D1F]">RAG Chatbot</span>
+    <AuthShell
+      title="Forgot your password?"
+      subtitle="No worries, we'll send you reset instructions"
+      footer={
+        <>
+          Need help?{' '}
+          <Link href="/support" className="text-primary hover:text-primary/80 transition-colors font-medium">
+            Contact support
           </Link>
-          <h1 className="text-2xl font-semibold text-[#1D1D1F] tracking-tight">
-            Forgot your password?
-          </h1>
-          <p className="mt-2 text-[15px] text-[#6E6E73]">
-            No worries, we&apos;ll send you reset instructions
-          </p>
-        </div>
-
-        {/* Forgot password form card */}
-        <div className="glass-heavy rounded-2xl p-8 shadow-apple">
-          <form onSubmit={handleSubmit} className="space-y-5">
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-5">
             <AuthInput
               label="Email"
               type="email"
@@ -272,30 +214,17 @@ export default function ForgotPasswordPage() {
                 'Send reset link'
               )}
             </Button>
-          </form>
+      </form>
 
-          <div className="mt-6 pt-6 border-t border-black/[0.06] text-center">
-            <Link
-              href="/login"
-              className="inline-flex items-center gap-2 text-[14px] text-[#6E6E73] hover:text-[#1D1D1F] transition-colors"
-            >
-              <ArrowLeftIcon />
-              Back to sign in
-            </Link>
-          </div>
-        </div>
-
-        {/* Additional help */}
-        <p className="mt-6 text-center text-[14px] text-[#6E6E73]">
-          Need help?{' '}
-          <Link
-            href="/support"
-            className="text-[#5B5EFF] hover:text-[#4040DD] transition-colors font-medium"
-          >
-            Contact support
-          </Link>
-        </p>
+      <div className="mt-6 pt-6 border-t border-border text-center">
+        <Link
+          href="/login"
+          className="inline-flex items-center gap-2 text-[14px] text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeftIcon />
+          Back to sign in
+        </Link>
       </div>
-    </div>
+    </AuthShell>
   );
 }

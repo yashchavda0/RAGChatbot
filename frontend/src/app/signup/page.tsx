@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { AuthInput } from '@/components/auth/AuthInput';
+import { AuthShell } from '@/components/auth/AuthShell';
 import { useAuthStore } from '@/stores/authStore';
 import { cn } from '@/lib/utils';
 
@@ -152,7 +153,7 @@ const PasswordStrengthIndicator = ({ password }: { password: string }) => {
   return (
     <div className="mt-2 space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-[13px] text-[#6E6E73]">Password strength</span>
+        <span className="text-[13px] text-muted-foreground">Password strength</span>
         <span
           className="text-[13px] font-medium"
           style={{ color: strength.color }}
@@ -160,7 +161,7 @@ const PasswordStrengthIndicator = ({ password }: { password: string }) => {
           {strength.label}
         </span>
       </div>
-      <div className="h-1.5 bg-black/[0.06] rounded-full overflow-hidden">
+      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-300 ease-out"
           style={{
@@ -169,7 +170,7 @@ const PasswordStrengthIndicator = ({ password }: { password: string }) => {
           }}
         />
       </div>
-      <div className="grid grid-cols-2 gap-1 text-[12px] text-[#6E6E73]">
+      <div className="grid grid-cols-2 gap-1 text-[12px] text-muted-foreground">
         <div className={cn('flex items-center gap-1.5', password.length >= 8 && 'text-[#34C759]')}>
           <span className={cn(password.length >= 8 ? 'opacity-100' : 'opacity-40')}>
             <CheckIcon />
@@ -313,46 +314,19 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
-      {/* Background gradient */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#5B5EFF]/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-[#5B5EFF]/5 rounded-full blur-3xl" />
-      </div>
-
-      <div className="relative w-full max-w-md animate-slide-up">
-        {/* Logo and title */}
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-[#5B5EFF] flex items-center justify-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width={22}
-                height={22}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="white"
-                strokeWidth={2.5}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z" />
-                <path d="M12 6v6l4 2" />
-              </svg>
-            </div>
-            <span className="text-xl font-semibold text-[#1D1D1F]">RAG Chatbot</span>
+    <AuthShell
+      title="Create your account"
+      subtitle="Start your journey with our AI-powered platform"
+      footer={
+        <>
+          Already have an account?{' '}
+          <Link href="/login" className="text-primary hover:text-primary/80 transition-colors font-medium">
+            Sign in
           </Link>
-          <h1 className="text-2xl font-semibold text-[#1D1D1F] tracking-tight">
-            Create your account
-          </h1>
-          <p className="mt-2 text-[15px] text-[#6E6E73]">
-            Start your journey with our AI-powered platform
-          </p>
-        </div>
-
-        {/* Signup form card */}
-        <div className="glass-heavy rounded-2xl p-8 shadow-apple">
-          <form onSubmit={handleSubmit} className="space-y-4">
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
             <AuthInput
               label="Full Name"
               type="text"
@@ -408,19 +382,19 @@ export default function SignupPage() {
                   onChange={(e) => handleInputChange('agreeToTerms', e.target.checked)}
                   className="w-4 h-4 mt-0.5 rounded border-black/[0.12] text-[#5B5EFF] focus:ring-[#5B5EFF]/20 cursor-pointer"
                 />
-                <span className="text-[14px] text-[#6E6E73] group-hover:text-[#1D1D1F] transition-colors">
+                <span className="text-[14px] text-muted-foreground group-hover:text-foreground transition-colors">
                   I agree to the{' '}
-                  <Link href="/terms" className="text-[#5B5EFF] hover:text-[#4040DD]">
+                  <Link href="/terms" className="text-primary hover:text-primary/80">
                     Terms of Service
                   </Link>{' '}
                   and{' '}
-                  <Link href="/privacy" className="text-[#5B5EFF] hover:text-[#4040DD]">
+                  <Link href="/privacy" className="text-primary hover:text-primary/80">
                     Privacy Policy
                   </Link>
                 </span>
               </label>
               {errors.agreeToTerms && (
-                <p className="text-[13px] text-[#FF3B30] flex items-center gap-1.5 animate-fade-in">
+                <p className="text-[13px] text-destructive flex items-center gap-1.5 animate-fade-in">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width={14}
@@ -475,61 +449,48 @@ export default function SignupPage() {
                 'Create account'
               )}
             </Button>
-          </form>
+      </form>
 
-          {/* API error message */}
-          {apiError && (
-            <div className="mt-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-[13px] text-red-600">
-              {apiError}
-            </div>
-          )}
-
-          {/* Divider */}
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-black/[0.06]" />
-            </div>
-            <div className="relative flex justify-center text-[13px]">
-              <span className="bg-white px-4 text-[#6E6E73]">Or continue with</span>
-            </div>
-          </div>
-
-          {/* Social login buttons */}
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              variant="outline"
-              type="button"
-              className="h-11 font-medium"
-              disabled={isLoading}
-              onClick={() => console.log('Google signup')}
-            >
-              <GoogleIcon />
-              <span className="ml-2">Google</span>
-            </Button>
-            <Button
-              variant="outline"
-              type="button"
-              className="h-11 font-medium"
-              disabled={isLoading}
-              onClick={() => console.log('GitHub signup')}
-            >
-              <GitHubIcon />
-              <span className="ml-2">GitHub</span>
-            </Button>
-          </div>
+      {/* API error message */}
+      {apiError && (
+        <div className="mt-4 rounded-lg bg-destructive/10 border border-destructive/30 px-4 py-3 text-[13px] text-destructive">
+          {apiError}
         </div>
+      )}
 
-        {/* Sign in link */}
-        <p className="mt-6 text-center text-[14px] text-[#6E6E73]">
-          Already have an account?{' '}
-          <Link
-            href="/login"
-            className="text-[#5B5EFF] hover:text-[#4040DD] transition-colors font-medium"
-          >
-            Sign in
-          </Link>
-        </p>
+      {/* Divider */}
+      <div className="relative my-6">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-border" />
+        </div>
+        <div className="relative flex justify-center text-[13px]">
+          <span className="bg-card px-4 text-muted-foreground">Or continue with</span>
+        </div>
       </div>
-    </div>
+
+      {/* Social login buttons */}
+      <div className="grid grid-cols-2 gap-3">
+        <Button
+          variant="outline"
+          type="button"
+          className="h-11 font-medium"
+          disabled={isLoading}
+          onClick={() => console.log('Google signup')}
+        >
+          <GoogleIcon />
+          <span className="ml-2">Google</span>
+        </Button>
+        <Button
+          variant="outline"
+          type="button"
+          className="h-11 font-medium"
+          disabled={isLoading}
+          onClick={() => console.log('GitHub signup')}
+        >
+          <GitHubIcon />
+          <span className="ml-2">GitHub</span>
+        </Button>
+      </div>
+    </AuthShell>
   );
 }

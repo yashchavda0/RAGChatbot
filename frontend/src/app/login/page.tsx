@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { AuthInput } from '@/components/auth/AuthInput';
+import { AuthShell } from '@/components/auth/AuthShell';
 import { useAuthStore } from '@/stores/authStore';
-import { cn } from '@/lib/utils';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -182,52 +182,24 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
-      {/* Background gradient */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#5B5EFF]/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-[#5B5EFF]/5 rounded-full blur-3xl" />
-      </div>
-
-      <div className="relative w-full max-w-md animate-slide-up">
-        {/* Logo and title */}
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-[#5B5EFF] flex items-center justify-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width={22}
-                height={22}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="white"
-                strokeWidth={2.5}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z" />
-                <path d="M12 6v6l4 2" />
-              </svg>
-            </div>
-            <span className="text-xl font-semibold text-[#1D1D1F]">RAG Chatbot</span>
+    <AuthShell
+      title="Welcome back"
+      subtitle="Sign in to your account to continue"
+      footer={
+        <>
+          Don&apos;t have an account?{' '}
+          <Link href="/signup" className="text-primary hover:text-primary/80 transition-colors font-medium">
+            Sign up
           </Link>
-          <h1 className="text-2xl font-semibold text-[#1D1D1F] tracking-tight">
-            Welcome back
-          </h1>
-          <p className="mt-2 text-[15px] text-[#6E6E73]">
-            Sign in to your account to continue
-          </p>
+        </>
+      }
+    >
+      {apiError && (
+        <div className="mb-5 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-[14px]">
+          {apiError}
         </div>
-
-        {/* Login form card */}
-        <div className="glass-heavy rounded-2xl p-8 shadow-apple">
-          {/* API Error Alert */}
-          {apiError && (
-            <div className="mb-5 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-[14px]">
-              {apiError}
-            </div>
-          )}
-          <form onSubmit={handleSubmit} className="space-y-5">
+      )}
+      <form onSubmit={handleSubmit} className="space-y-5">
             <AuthInput
               label="Email"
               type="email"
@@ -256,15 +228,15 @@ export default function LoginPage() {
                   type="checkbox"
                   checked={formData.rememberMe}
                   onChange={(e) => handleInputChange('rememberMe', e.target.checked)}
-                  className="w-4 h-4 rounded border-black/[0.12] text-[#5B5EFF] focus:ring-[#5B5EFF]/20 cursor-pointer"
+                  className="w-4 h-4 rounded border-input text-primary focus:ring-primary/20 cursor-pointer"
                 />
-                <span className="text-[14px] text-[#6E6E73] group-hover:text-[#1D1D1F] transition-colors">
+                <span className="text-[14px] text-muted-foreground group-hover:text-foreground transition-colors">
                   Remember me
                 </span>
               </label>
               <Link
                 href="/forgot-password"
-                className="text-[14px] text-[#5B5EFF] hover:text-[#4040DD] transition-colors font-medium"
+                className="text-[14px] text-primary hover:text-primary/80 transition-colors font-medium"
               >
                 Forgot password?
               </Link>
@@ -306,52 +278,39 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          {/* Divider */}
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-black/[0.06]" />
-            </div>
-            <div className="relative flex justify-center text-[13px]">
-              <span className="bg-white px-4 text-[#6E6E73]">Or continue with</span>
-            </div>
-          </div>
-
-          {/* Social login buttons */}
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              variant="outline"
-              type="button"
-              className="h-11 font-medium"
-              disabled={isLoading}
-              onClick={() => console.log('Google login')}
-            >
-              <GoogleIcon />
-              <span className="ml-2">Google</span>
-            </Button>
-            <Button
-              variant="outline"
-              type="button"
-              className="h-11 font-medium"
-              disabled={isLoading}
-              onClick={() => console.log('GitHub login')}
-            >
-              <GitHubIcon />
-              <span className="ml-2">GitHub</span>
-            </Button>
-          </div>
+      {/* Divider */}
+      <div className="relative my-6">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-border" />
         </div>
-
-        {/* Sign up link */}
-        <p className="mt-6 text-center text-[14px] text-[#6E6E73]">
-          Don&apos;t have an account?{' '}
-          <Link
-            href="/signup"
-            className="text-[#5B5EFF] hover:text-[#4040DD] transition-colors font-medium"
-          >
-            Sign up
-          </Link>
-        </p>
+        <div className="relative flex justify-center text-[13px]">
+          <span className="bg-card px-4 text-muted-foreground">Or continue with</span>
+        </div>
       </div>
-    </div>
+
+      {/* Social login buttons */}
+      <div className="grid grid-cols-2 gap-3">
+        <Button
+          variant="outline"
+          type="button"
+          className="h-11 font-medium"
+          disabled={isLoading}
+          onClick={() => console.log('Google login')}
+        >
+          <GoogleIcon />
+          <span className="ml-2">Google</span>
+        </Button>
+        <Button
+          variant="outline"
+          type="button"
+          className="h-11 font-medium"
+          disabled={isLoading}
+          onClick={() => console.log('GitHub login')}
+        >
+          <GitHubIcon />
+          <span className="ml-2">GitHub</span>
+        </Button>
+      </div>
+    </AuthShell>
   );
 }
