@@ -1,13 +1,19 @@
 """
 Chatbot service for CRUD operations and training management.
 """
+
 import uuid
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 from sqlalchemy import select, update, delete, func, case
 from config.logging_config import get_logger
 from services.postgres_service import get_postgres_service
-from services.models import Chatbot, ChatbotDocument, ChatbotMetadata, ConversationMessage
+from services.models import (
+    Chatbot,
+    ChatbotDocument,
+    ChatbotMetadata,
+    ConversationMessage,
+)
 
 logger = get_logger(__name__)
 
@@ -32,6 +38,8 @@ class ChatbotService:
         embedding_model: str = "gemini-embedding-001",
         chunk_size: int = 1024,
         chunk_overlap: int = 50,
+        settings: Optional[Dict[str, Any]] = None,
+        icon: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Create a new chatbot.
@@ -43,11 +51,16 @@ class ChatbotService:
             embedding_model: Embedding model to use
             chunk_size: Text chunk size
             chunk_overlap: Chunk overlap
+            settings: Initial settings dict
+            icon: Icon key to store in settings
 
         Returns:
             Created chatbot data
         """
         chatbot_id = str(uuid.uuid4())
+        resolved_settings = dict(settings or {})
+        if icon is not None:
+            resolved_settings["icon"] = icon
 
         session = self._get_session()
         try:
@@ -55,13 +68,14 @@ class ChatbotService:
                 id=chatbot_id,
                 name=name,
                 description=description,
-                system_prompt=system_prompt or "You are a helpful assistant. Answer based only on the provided context from the knowledge base.",
+                system_prompt=system_prompt
+                or "You are a helpful assistant. Answer based only on the provided context from the knowledge base.",
                 web_search_threshold=web_search_threshold,
                 embedding_model=embedding_model,
                 chunk_size=chunk_size,
                 chunk_overlap=chunk_overlap,
                 status="draft",
-                settings={},
+                settings=resolved_settings,
             )
 
             session.add(chatbot)
@@ -90,7 +104,7 @@ class ChatbotService:
                 "chunk_size": chunk_size,
                 "chunk_overlap": chunk_overlap,
                 "created_at": chatbot.created_at.isoformat(),
-                "settings": {},
+                "settings": resolved_settings,
             }
 
         except Exception as e:
@@ -129,8 +143,12 @@ class ChatbotService:
                 "chunk_size": result.chunk_size,
                 "chunk_overlap": result.chunk_overlap,
                 "settings": result.settings or {},
-                "created_at": result.created_at.isoformat() if result.created_at else None,
-                "updated_at": result.updated_at.isoformat() if result.updated_at else None,
+                "created_at": (
+                    result.created_at.isoformat() if result.created_at else None
+                ),
+                "updated_at": (
+                    result.updated_at.isoformat() if result.updated_at else None
+                ),
             }
 
         finally:
@@ -204,7 +222,9 @@ class ChatbotService:
                         "conversation_count": row.conversation_count or 0,
                         "message_count": row.message_count or 0,
                         "last_active_at": (
-                            row.last_active_at.isoformat() if row.last_active_at else None
+                            row.last_active_at.isoformat()
+                            if row.last_active_at
+                            else None
                         ),
                         "messages_this_week": int(row.messages_this_week or 0),
                         "messages_prior_week": int(row.messages_prior_week or 0),
@@ -256,19 +276,23 @@ class ChatbotService:
 
             chatbots = []
             for r in results:
-                chatbots.append({
-                    "id": r.id,
-                    "name": r.name,
-                    "description": r.description,
-                    "system_prompt": r.system_prompt,
-                    "web_search_threshold": r.web_search_threshold,
-                    "status": r.status,
-                    "embedding_model": r.embedding_model,
-                    "chunk_size": r.chunk_size,
-                    "chunk_overlap": r.chunk_overlap,
-                    "settings": r.settings or {},
-                    "created_at": r.created_at.isoformat() if r.created_at else None,
-                })
+                chatbots.append(
+                    {
+                        "id": r.id,
+                        "name": r.name,
+                        "description": r.description,
+                        "system_prompt": r.system_prompt,
+                        "web_search_threshold": r.web_search_threshold,
+                        "status": r.status,
+                        "embedding_model": r.embedding_model,
+                        "chunk_size": r.chunk_size,
+                        "chunk_overlap": r.chunk_overlap,
+                        "settings": r.settings or {},
+                        "created_at": (
+                            r.created_at.isoformat() if r.created_at else None
+                        ),
+                    }
+                )
 
             stats_by_id = self._get_chatbot_stats([c["id"] for c in chatbots], session)
             for c in chatbots:
@@ -362,9 +386,7 @@ class ChatbotService:
             )
 
             # Delete chatbot
-            result = session.execute(
-                delete(Chatbot).where(Chatbot.id == chatbot_id)
-            )
+            result = session.execute(delete(Chatbot).where(Chatbot.id == chatbot_id))
 
             session.commit()
 
@@ -381,6 +403,32 @@ class ChatbotService:
             raise
         finally:
             session.close()
+
+    async def duplicate(self, chatbot_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Create a new chatbot copying another's configuration. Does not copy
+        documents/knowledge base — the duplicate starts as an empty draft bot.
+
+        Args:
+            chatbot_id: Chatbot identifier to duplicate
+
+        Returns:
+            Newly created chatbot data, or None if the source doesn't exist
+        """
+        source = await self.get(chatbot_id)
+        if not source:
+            return None
+
+        return await self.create(
+            name=f"{source['name']} (Copy)",
+            description=source["description"],
+            system_prompt=source["system_prompt"],
+            web_search_threshold=source["web_search_threshold"],
+            embedding_model=source["embedding_model"],
+            chunk_size=source["chunk_size"],
+            chunk_overlap=source["chunk_overlap"],
+            settings=source["settings"],
+        )
 
     async def get_status(self, chatbot_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -402,7 +450,9 @@ class ChatbotService:
                 return None
 
             # Get metadata
-            stmt_meta = select(ChatbotMetadata).where(ChatbotMetadata.chatbot_id == chatbot_id)
+            stmt_meta = select(ChatbotMetadata).where(
+                ChatbotMetadata.chatbot_id == chatbot_id
+            )
             metadata = session.execute(stmt_meta).scalar_one_or_none()
 
             return {
@@ -412,7 +462,11 @@ class ChatbotService:
                 "total_chunks": metadata.total_chunks if metadata else 0,
                 "total_documents": metadata.total_documents if metadata else 0,
                 "training_progress": metadata.training_progress if metadata else 0,
-                "last_trained_at": metadata.last_trained_at.isoformat() if metadata and metadata.last_trained_at else None,
+                "last_trained_at": (
+                    metadata.last_trained_at.isoformat()
+                    if metadata and metadata.last_trained_at
+                    else None
+                ),
                 "training_error": metadata.training_error if metadata else None,
             }
 
@@ -439,9 +493,7 @@ class ChatbotService:
         try:
             # Update chatbot status
             session.execute(
-                update(Chatbot)
-                .where(Chatbot.id == chatbot_id)
-                .values(status=status)
+                update(Chatbot).where(Chatbot.id == chatbot_id).values(status=status)
             )
 
             # Update metadata
@@ -452,6 +504,7 @@ class ChatbotService:
                 update_data["training_error"] = training_error
             if status == "active":
                 from datetime import datetime
+
                 update_data["last_trained_at"] = datetime.utcnow()
 
             if update_data:

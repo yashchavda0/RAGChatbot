@@ -3,11 +3,13 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { GlassCard } from '@/components/shared/GlassCard';
+import { IconPicker } from '@/components/dashboard/IconPicker';
+import type { ChatbotIconKey } from '@/lib/utils/chatbotIcons';
 
 interface CreateChatbotModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: { name: string; description: string }) => void;
+  onSubmit: (data: { name: string; description: string; icon?: string }) => void;
   isLoading?: boolean;
 }
 
@@ -19,6 +21,7 @@ export function CreateChatbotModal({
 }: CreateChatbotModalProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [icon, setIcon] = useState<ChatbotIconKey>('chat');
   const [errors, setErrors] = useState<{ name?: string; description?: string }>({});
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -33,9 +36,10 @@ export function CreateChatbotModal({
       return;
     }
 
-    onSubmit({ name, description });
+    onSubmit({ name, description, icon });
     setName('');
     setDescription('');
+    setIcon('chat');
     setErrors({});
   };
 
@@ -115,6 +119,13 @@ export function CreateChatbotModal({
                 {errors.description && (
                   <p className="mt-1 text-sm text-[#FF3B30]">{errors.description}</p>
                 )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#1D1D1F] mb-2">
+                  Icon
+                </label>
+                <IconPicker value={icon} onChange={setIcon} />
               </div>
             </div>
 

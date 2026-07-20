@@ -1,4 +1,5 @@
 """Tests for ChatbotService aggregate stats and duplication."""
+
 import uuid
 from datetime import datetime, timedelta
 
@@ -60,7 +61,10 @@ def test_get_chatbot_stats_counts_conversations_messages_and_documents(service):
         _add_message(session, chatbot_id, "session-b", now - timedelta(days=10))
         session.add(
             ChatbotDocument(
-                id=str(uuid.uuid4()), chatbot_id=chatbot_id, filename="a.pdf", status="completed"
+                id=str(uuid.uuid4()),
+                chatbot_id=chatbot_id,
+                filename="a.pdf",
+                status="completed",
             )
         )
         session.commit()
@@ -126,3 +130,64 @@ async def test_create_without_icon_has_no_icon_key(service):
     chatbot = await service.create(name="Plain Bot")
 
     assert "icon" not in chatbot["settings"]
+
+
+@pytest.mark.asyncio
+async def test_update_status_to_inactive(service):
+    chatbot = await service.create(name="Bot")
+
+    updated = await service.update(chatbot["id"], status="inactive")
+
+    assert updated["status"] == "inactive"
+
+
+@pytest.mark.asyncio
+async def test_duplicate_copies_config_without_documents(service):
+    original = await service.create(
+        name="Support Bot",
+        description="Handles support",
+        icon="support",
+    )
+    session = service._get_session()
+    try:
+        session.add(
+            ChatbotDocument(
+                id=str(uuid.uuid4()),
+                chatbot_id=original["id"],
+                filename="a.pdf",
+                status="completed",
+            )
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    duplicated = await service.duplicate(original["id"])
+
+    assert duplicated is not None
+    assert duplicated["id"] != original["id"]
+    assert duplicated["name"] == "Support Bot (Copy)"
+    assert duplicated["description"] == "Handles support"
+    assert duplicated["settings"]["icon"] == "support"
+    assert duplicated["status"] == "draft"
+
+    session = service._get_session()
+    try:
+        from sqlalchemy import select as sa_select
+        from services.models import ChatbotDocument as Doc
+
+        docs = (
+            session.execute(sa_select(Doc).where(Doc.chatbot_id == duplicated["id"]))
+            .scalars()
+            .all()
+        )
+        assert docs == []
+    finally:
+        session.close()
+
+
+@pytest.mark.asyncio
+async def test_duplicate_returns_none_for_missing_chatbot(service):
+    result = await service.duplicate("does-not-exist")
+
+    assert result is None

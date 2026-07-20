@@ -1,6 +1,7 @@
 """
 Chatbot management API routes.
 """
+
 import uuid
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, UploadFile, File, BackgroundTasks
@@ -23,17 +24,21 @@ router = APIRouter(prefix="/chatbots", tags=["chatbots"])
 # SCHEMAS
 # =============================================================================
 
+
 class ChatbotCreate(BaseModel):
     """Request to create a new chatbot."""
+
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
     system_prompt: Optional[str] = Field(
         default="You are a helpful assistant. Answer based only on the provided context from the knowledge base. If the context doesn't contain relevant information, say so."
     )
+    icon: Optional[str] = None
 
 
 class ChatbotUpdate(BaseModel):
     """Request to update a chatbot."""
+
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = None
     system_prompt: Optional[str] = None
@@ -42,6 +47,7 @@ class ChatbotUpdate(BaseModel):
 
 class ChatbotResponse(BaseModel):
     """Chatbot response."""
+
     id: str
     name: str
     description: Optional[str] = None
@@ -53,16 +59,24 @@ class ChatbotResponse(BaseModel):
     web_search_threshold: Optional[float] = 0.6
     settings: Optional[dict] = None
     created_at: Optional[str] = None
+    conversation_count: int = 0
+    message_count: int = 0
+    last_active_at: Optional[str] = None
+    document_count: int = 0
+    messages_this_week: int = 0
+    messages_prior_week: int = 0
 
 
 class ChatbotListResponse(BaseModel):
     """List of chatbots."""
+
     chatbots: List[ChatbotResponse]
     total: int
 
 
 class ChatbotStatusResponse(BaseModel):
     """Chatbot training status."""
+
     chatbot_id: str
     name: str
     status: str
@@ -75,17 +89,20 @@ class ChatbotStatusResponse(BaseModel):
 
 class AddURLRequest(BaseModel):
     """Request to add URL to knowledge base."""
+
     url: str
 
 
 class AddTextRequest(BaseModel):
     """Request to add text to knowledge base."""
+
     text: str
     source_name: Optional[str] = None
 
 
 class CrawlURLRequest(BaseModel):
     """Request to crawl a URL and discover links."""
+
     url: str
     max_depth: int = Field(default=2, ge=0, le=5)
     max_links: int = Field(default=100, ge=1, le=500)
@@ -95,6 +112,7 @@ class CrawlURLRequest(BaseModel):
 
 class CrawlURLResponse(BaseModel):
     """Response from URL crawling."""
+
     source_url: str
     discovered_links: List[dict]
     total_discovered: int
@@ -104,6 +122,7 @@ class CrawlURLResponse(BaseModel):
 
 class ScrapeURLsRequest(BaseModel):
     """Request to scrape selected URLs into knowledge base."""
+
     urls: List[str] = Field(..., min_length=1, max_length=50)
     source_url: Optional[str] = None
 
@@ -111,6 +130,7 @@ class ScrapeURLsRequest(BaseModel):
 # =============================================================================
 # ROUTES
 # =============================================================================
+
 
 @router.post("", response_model=ChatbotResponse)
 async def create_chatbot(request: ChatbotCreate):
@@ -121,6 +141,7 @@ async def create_chatbot(request: ChatbotCreate):
             name=request.name,
             description=request.description,
             system_prompt=request.system_prompt,
+            icon=request.icon,
         )
         return ChatbotResponse(**chatbot)
     except Exception as e:
@@ -217,7 +238,9 @@ async def activate_chatbot(chatbot_id: str):
             return {"message": "Chatbot is already active", "chatbot_id": chatbot_id}
 
         if chatbot["status"] == "training":
-            raise HTTPException(status_code=400, detail="Chatbot is currently training, please wait")
+            raise HTTPException(
+                status_code=400, detail="Chatbot is currently training, please wait"
+            )
 
         updated = await service.update(chatbot_id, status="active")
         return ChatbotResponse(**updated)
@@ -225,6 +248,43 @@ async def activate_chatbot(chatbot_id: str):
         raise
     except Exception as e:
         logger.error(f"Error activating chatbot: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{chatbot_id}/deactivate")
+async def deactivate_chatbot(chatbot_id: str):
+    """Deactivate a chatbot so it stops accepting chat messages."""
+    try:
+        service = get_chatbot_service()
+        chatbot = await service.get(chatbot_id)
+        if not chatbot:
+            raise HTTPException(status_code=404, detail="Chatbot not found")
+
+        if chatbot["status"] == "inactive":
+            return {"message": "Chatbot is already inactive", "chatbot_id": chatbot_id}
+
+        updated = await service.update(chatbot_id, status="inactive")
+        return ChatbotResponse(**updated)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deactivating chatbot: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{chatbot_id}/duplicate", response_model=ChatbotResponse)
+async def duplicate_chatbot(chatbot_id: str):
+    """Duplicate a chatbot's configuration into a new draft chatbot (no documents copied)."""
+    try:
+        service = get_chatbot_service()
+        duplicated = await service.duplicate(chatbot_id)
+        if not duplicated:
+            raise HTTPException(status_code=404, detail="Chatbot not found")
+        return ChatbotResponse(**duplicated)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error duplicating chatbot: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -254,6 +314,7 @@ async def get_chatbot_status(chatbot_id: str):
 # KNOWLEDGE BASE ROUTES
 # =============================================================================
 
+
 @router.post("/{chatbot_id}/documents")
 async def upload_document(
     chatbot_id: str,
@@ -263,7 +324,7 @@ async def upload_document(
     import base64
     from tasks.document_tasks import process_document_async
     from services.task_manager import TaskManager
-    
+
     try:
         # Verify chatbot exists
         service = get_chatbot_service()
@@ -275,9 +336,9 @@ async def upload_document(
 
         # Read file content
         content = await file.read()
-        
+
         # Encode content to base64 for Celery serialization
-        content_base64 = base64.b64encode(content).decode('utf-8')
+        content_base64 = base64.b64encode(content).decode("utf-8")
 
         # Queue Celery task
         task = process_document_async.delay(
@@ -286,18 +347,18 @@ async def upload_document(
             filename=file.filename,
             content_base64=content_base64,
         )
-        
+
         # Create task record in database
         task_manager = TaskManager()
         task_manager.create_task(
             task_id=task.id,
             chatbot_id=chatbot_id,
-            task_type='document_processing',
+            task_type="document_processing",
             metadata={
-                'filename': file.filename,
-                'document_id': document_id,
-                'file_size': len(content),
-            }
+                "filename": file.filename,
+                "document_id": document_id,
+                "file_size": len(content),
+            },
         )
 
         return {
@@ -499,6 +560,7 @@ async def add_text(
 # DOCUMENT MANAGEMENT ENDPOINTS
 # =============================================================================
 
+
 @router.get("/{chatbot_id}/documents")
 async def list_chatbot_documents(chatbot_id: str):
     """List all documents for a chatbot."""
@@ -540,8 +602,12 @@ async def list_chatbot_documents(chatbot_id: str):
                         "chunks_count": doc.chunks_count,
                         "error_message": doc.error_message,
                         "parent_document_id": doc.parent_document_id,
-                        "created_at": doc.created_at.isoformat() if doc.created_at else None,
-                        "processed_at": doc.processed_at.isoformat() if doc.processed_at else None,
+                        "created_at": (
+                            doc.created_at.isoformat() if doc.created_at else None
+                        ),
+                        "processed_at": (
+                            doc.processed_at.isoformat() if doc.processed_at else None
+                        ),
                     }
                     for doc in documents
                     # Hide child documents (crawled pages) from the main list
@@ -601,7 +667,9 @@ async def get_document(chatbot_id: str, document_id: str):
                 "source_url": doc.source_url,
                 "chunks_count": doc.chunks_count,
                 "created_at": doc.created_at.isoformat() if doc.created_at else None,
-                "processed_at": doc.processed_at.isoformat() if doc.processed_at else None,
+                "processed_at": (
+                    doc.processed_at.isoformat() if doc.processed_at else None
+                ),
             }
         finally:
             session.close()
@@ -677,6 +745,7 @@ async def delete_chatbot_document(chatbot_id: str, document_id: str):
 # BACKGROUND TASKS
 # =============================================================================
 
+
 async def process_document_task(
     chatbot_id: str,
     document_id: str,
@@ -717,7 +786,11 @@ async def process_document_task(
 
         # 2. Upload original file to MinIO
         minio_service = get_minio_service()
-        content_type = "application/pdf" if filename.endswith(".pdf") else "application/octet-stream"
+        content_type = (
+            "application/pdf"
+            if filename.endswith(".pdf")
+            else "application/octet-stream"
+        )
         await minio_service.upload_document(
             document_id=document_id,
             file_content=content,
@@ -771,7 +844,9 @@ async def process_document_task(
         # 6. Generate embeddings with all models
         embedding_service = get_embedding_service()
         chunk_texts = [c["content"] for c in chunks]
-        all_embeddings = await embedding_service.embed_documents_with_all_models(chunk_texts)
+        all_embeddings = await embedding_service.embed_documents_with_all_models(
+            chunk_texts
+        )
 
         await service.update_status(chatbot_id, "training", training_progress=70)
 
@@ -909,14 +984,24 @@ async def process_url_task(
 
         connector = aiohttp.TCPConnector(ssl=ssl_context)
 
-        async with aiohttp.ClientSession(timeout=timeout, connector=connector) as client:
-            async with client.get(url, headers=headers, allow_redirects=True, max_redirects=10) as response:
+        async with aiohttp.ClientSession(
+            timeout=timeout, connector=connector
+        ) as client:
+            async with client.get(
+                url, headers=headers, allow_redirects=True, max_redirects=10
+            ) as response:
                 if response.status == 403:
                     # Retry with different User-Agent
-                    headers["User-Agent"] = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
-                    async with client.get(url, headers=headers, allow_redirects=True) as retry_response:
+                    headers["User-Agent"] = (
+                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
+                    )
+                    async with client.get(
+                        url, headers=headers, allow_redirects=True
+                    ) as retry_response:
                         if retry_response.status != 200:
-                            raise ValueError(f"Failed to fetch URL: HTTP {retry_response.status}")
+                            raise ValueError(
+                                f"Failed to fetch URL: HTTP {retry_response.status}"
+                            )
                         html = await retry_response.text()
                 elif response.status != 200:
                     raise ValueError(f"Failed to fetch URL: HTTP {response.status}")
@@ -982,7 +1067,9 @@ async def process_url_task(
         # 5. Generate embeddings with all models
         embedding_service = get_embedding_service()
         chunk_texts = [c["content"] for c in chunks]
-        all_embeddings = await embedding_service.embed_documents_with_all_models(chunk_texts)
+        all_embeddings = await embedding_service.embed_documents_with_all_models(
+            chunk_texts
+        )
 
         await service.update_status(chatbot_id, "training", training_progress=70)
 
@@ -1011,14 +1098,18 @@ async def process_url_task(
         # Update parent document if all children are completed
         if parent_document_id:
             from sqlalchemy import select as sql_select
+
             parent_result = session.execute(
-                sql_select(ChatbotDocument).where(ChatbotDocument.id == parent_document_id)
+                sql_select(ChatbotDocument).where(
+                    ChatbotDocument.id == parent_document_id
+                )
             )
             parent_doc = parent_result.scalar_one_or_none()
             if parent_doc:
                 children_result = session.execute(
-                    sql_select(ChatbotDocument)
-                    .where(ChatbotDocument.parent_document_id == parent_document_id)
+                    sql_select(ChatbotDocument).where(
+                        ChatbotDocument.parent_document_id == parent_document_id
+                    )
                 )
                 children = children_result.scalars().all()
                 all_done = all(c.status == "completed" for c in children)
@@ -1147,7 +1238,9 @@ async def process_text_task(
         # 4. Generate embeddings with all models
         embedding_service = get_embedding_service()
         chunk_texts = [c["content"] for c in chunks]
-        all_embeddings = await embedding_service.embed_documents_with_all_models(chunk_texts)
+        all_embeddings = await embedding_service.embed_documents_with_all_models(
+            chunk_texts
+        )
 
         await service.update_status(chatbot_id, "training", training_progress=60)
 
@@ -1219,8 +1312,10 @@ async def process_text_task(
 # CUSTOMIZATION ROUTES
 # =============================================================================
 
+
 class CustomizationResponse(BaseModel):
     """Chatbot customization response."""
+
     id: str
     chatbot_id: str
     primary_color: str = "#5B5EFF"
@@ -1245,6 +1340,7 @@ class CustomizationResponse(BaseModel):
 
 class CustomizationUpdate(BaseModel):
     """Request to update customization settings."""
+
     primary_color: Optional[str] = None
     position: Optional[str] = None
     size: Optional[str] = None
@@ -1282,8 +1378,9 @@ async def get_customization(chatbot_id: str):
         session = postgres_service.session_factory()
         try:
             result = session.execute(
-                select(ChatbotCustomization)
-                .where(ChatbotCustomization.chatbot_id == chatbot_id)
+                select(ChatbotCustomization).where(
+                    ChatbotCustomization.chatbot_id == chatbot_id
+                )
             )
             customization = result.scalar_one_or_none()
 
@@ -1313,8 +1410,16 @@ async def get_customization(chatbot_id: str):
                 input_max_chars=customization.input_max_chars,
                 button_text=customization.button_text,
                 show_branding=customization.show_branding,
-                created_at=customization.created_at.isoformat() if customization.created_at else None,
-                updated_at=customization.updated_at.isoformat() if customization.updated_at else None,
+                created_at=(
+                    customization.created_at.isoformat()
+                    if customization.created_at
+                    else None
+                ),
+                updated_at=(
+                    customization.updated_at.isoformat()
+                    if customization.updated_at
+                    else None
+                ),
             )
         finally:
             session.close()
@@ -1346,8 +1451,9 @@ async def update_customization(chatbot_id: str, request: CustomizationUpdate):
         try:
             # Check if customization exists
             result = session.execute(
-                select(ChatbotCustomization)
-                .where(ChatbotCustomization.chatbot_id == chatbot_id)
+                select(ChatbotCustomization).where(
+                    ChatbotCustomization.chatbot_id == chatbot_id
+                )
             )
             customization = result.scalar_one_or_none()
 
@@ -1360,8 +1466,7 @@ async def update_customization(chatbot_id: str, request: CustomizationUpdate):
             else:
                 # Create new customization
                 customization = ChatbotCustomization(
-                    chatbot_id=chatbot_id,
-                    **request.model_dump(exclude_unset=True)
+                    chatbot_id=chatbot_id, **request.model_dump(exclude_unset=True)
                 )
                 session.add(customization)
 
@@ -1387,8 +1492,16 @@ async def update_customization(chatbot_id: str, request: CustomizationUpdate):
                 input_max_chars=customization.input_max_chars,
                 button_text=customization.button_text,
                 show_branding=customization.show_branding,
-                created_at=customization.created_at.isoformat() if customization.created_at else None,
-                updated_at=customization.updated_at.isoformat() if customization.updated_at else None,
+                created_at=(
+                    customization.created_at.isoformat()
+                    if customization.created_at
+                    else None
+                ),
+                updated_at=(
+                    customization.updated_at.isoformat()
+                    if customization.updated_at
+                    else None
+                ),
             )
         finally:
             session.close()
@@ -1404,8 +1517,10 @@ async def update_customization(chatbot_id: str, request: CustomizationUpdate):
 # CONVERSATIONS ROUTES
 # =============================================================================
 
+
 class ConversationSummary(BaseModel):
     """Summary of a conversation session."""
+
     session_id: str
     chatbot_id: str
     first_message: str
@@ -1420,12 +1535,14 @@ class ConversationSummary(BaseModel):
 
 class ConversationsListResponse(BaseModel):
     """List of conversations with pagination."""
+
     conversations: List[ConversationSummary]
     pagination: dict
 
 
 class MessageResponse(BaseModel):
     """Single message in a conversation."""
+
     message_id: str
     role: str
     content: str
@@ -1436,6 +1553,7 @@ class MessageResponse(BaseModel):
 
 class ConversationDetailResponse(BaseModel):
     """Full conversation transcript."""
+
     session_id: str
     chatbot_id: str
     messages: List[MessageResponse]
@@ -1471,15 +1589,15 @@ async def list_conversations(
             sessions_query = (
                 select(
                     ConversationMessage.session_id,
-                    func.min(ConversationMessage.timestamp).label('started_at'),
-                    func.max(ConversationMessage.timestamp).label('last_activity'),
-                    func.count(ConversationMessage.message_id).label('message_count'),
+                    func.min(ConversationMessage.timestamp).label("started_at"),
+                    func.max(ConversationMessage.timestamp).label("last_activity"),
+                    func.count(ConversationMessage.message_id).label("message_count"),
                     func.sum(
-                        case((ConversationMessage.role == 'user', 1), else_=0)
-                    ).label('user_messages'),
+                        case((ConversationMessage.role == "user", 1), else_=0)
+                    ).label("user_messages"),
                     func.sum(
-                        case((ConversationMessage.role == 'assistant', 1), else_=0)
-                    ).label('assistant_messages'),
+                        case((ConversationMessage.role == "assistant", 1), else_=0)
+                    ).label("assistant_messages"),
                 )
                 .where(ConversationMessage.chatbot_id == chatbot_id)
                 .group_by(ConversationMessage.session_id)
@@ -1492,7 +1610,9 @@ async def list_conversations(
 
             # Get total count
             count_subquery = sessions_query.subquery()
-            total = session.execute(select(func.count()).select_from(count_subquery)).scalar()
+            total = session.execute(
+                select(func.count()).select_from(count_subquery)
+            ).scalar()
 
             # Apply pagination
             offset = (page - 1) * limit
@@ -1524,18 +1644,22 @@ async def list_conversations(
                 last_msg_data = last_msg_result.first()
                 last_msg = last_msg_data.content[:100] if last_msg_data else ""
 
-                conversations.append(ConversationSummary(
-                    session_id=row.session_id,
-                    chatbot_id=chatbot_id,
-                    first_message=first_msg,
-                    last_message=last_msg,
-                    message_count=row.message_count,
-                    user_messages=row.user_messages or 0,
-                    assistant_messages=row.assistant_messages or 0,
-                    started_at=row.started_at.isoformat(),
-                    last_activity=row.last_activity.isoformat(),
-                    duration_seconds=int((row.last_activity - row.started_at).total_seconds()),
-                ))
+                conversations.append(
+                    ConversationSummary(
+                        session_id=row.session_id,
+                        chatbot_id=chatbot_id,
+                        first_message=first_msg,
+                        last_message=last_msg,
+                        message_count=row.message_count,
+                        user_messages=row.user_messages or 0,
+                        assistant_messages=row.assistant_messages or 0,
+                        started_at=row.started_at.isoformat(),
+                        last_activity=row.last_activity.isoformat(),
+                        duration_seconds=int(
+                            (row.last_activity - row.started_at).total_seconds()
+                        ),
+                    )
+                )
 
             return ConversationsListResponse(
                 conversations=conversations,
@@ -1544,7 +1668,7 @@ async def list_conversations(
                     "page": page,
                     "limit": limit,
                     "pages": (total + limit - 1) // limit if total > 0 else 0,
-                }
+                },
             )
         finally:
             session.close()
@@ -1556,7 +1680,10 @@ async def list_conversations(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/{chatbot_id}/conversations/{session_id}", response_model=ConversationDetailResponse)
+@router.get(
+    "/{chatbot_id}/conversations/{session_id}",
+    response_model=ConversationDetailResponse,
+)
 async def get_conversation(chatbot_id: str, session_id: str):
     """Get full conversation transcript for a session."""
     from services.postgres_service import get_postgres_service
@@ -1587,14 +1714,16 @@ async def get_conversation(chatbot_id: str, session_id: str):
             # Convert to response format
             message_responses = []
             for msg in messages:
-                message_responses.append(MessageResponse(
-                    message_id=msg.message_id,
-                    role=msg.role,
-                    content=msg.content,
-                    sources=msg.sources,
-                    agent_executions=msg.agent_executions,
-                    timestamp=msg.timestamp.isoformat(),
-                ))
+                message_responses.append(
+                    MessageResponse(
+                        message_id=msg.message_id,
+                        role=msg.role,
+                        content=msg.content,
+                        sources=msg.sources,
+                        agent_executions=msg.agent_executions,
+                        timestamp=msg.timestamp.isoformat(),
+                    )
+                )
 
             started_at = messages[0].timestamp
             last_activity = messages[-1].timestamp

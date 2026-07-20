@@ -1,6 +1,8 @@
 // Chatbot Types for Multi-Tenant RAG Chatbot SaaS
 
-export type ChatbotStatus = 'live' | 'draft' | 'inactive';
+import type { ChatbotTrend } from "@/lib/utils/trend";
+
+export type ChatbotStatus = "live" | "draft" | "inactive";
 
 export interface Chatbot {
   id: string;
@@ -27,7 +29,7 @@ export interface ChatbotTheme {
   primaryColor: string;
   backgroundColor: string;
   textColor: string;
-  borderRadius: 'none' | 'sm' | 'md' | 'lg' | 'full';
+  borderRadius: "none" | "sm" | "md" | "lg" | "full";
   fontFamily: string;
 }
 
@@ -59,6 +61,12 @@ export interface ChatbotListItem {
   description: string;
   status: ChatbotStatus;
   conversationCount: number;
+  messageCount: number;
+  documentCount: number;
+  messagesThisWeek: number;
+  messagesPriorWeek: number;
+  trend: ChatbotTrend;
   lastActiveAt?: string;
   createdAt: string;
+  icon?: string;
 }

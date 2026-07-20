@@ -11,6 +11,12 @@ export interface ChatbotResponse {
   chunk_overlap: number;
   settings: Record<string, any> | null;
   created_at: string | null;
+  conversation_count: number;
+  message_count: number;
+  last_active_at: string | null;
+  document_count: number;
+  messages_this_week: number;
+  messages_prior_week: number;
 }
 
 export interface ChatbotListResponse {
@@ -22,6 +28,7 @@ export interface CreateChatbotRequest {
   name: string;
   description?: string;
   system_prompt?: string;
+  icon?: string;
 }
 
 export interface UpdateChatbotRequest {
@@ -146,6 +153,20 @@ export const chatbotApi = {
 
   activate: async (id: string): Promise<ChatbotResponse> => {
     const response = await fetch(`${API_URL}/chatbots/${id}/activate`, {
+      method: "POST",
+    });
+    return handleResponse<ChatbotResponse>(response);
+  },
+
+  deactivate: async (id: string): Promise<ChatbotResponse> => {
+    const response = await fetch(`${API_URL}/chatbots/${id}/deactivate`, {
+      method: "POST",
+    });
+    return handleResponse<ChatbotResponse>(response);
+  },
+
+  duplicate: async (id: string): Promise<ChatbotResponse> => {
+    const response = await fetch(`${API_URL}/chatbots/${id}/duplicate`, {
       method: "POST",
     });
     return handleResponse<ChatbotResponse>(response);

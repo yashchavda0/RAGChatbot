@@ -1,11 +1,14 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { GlassCard } from '@/components/shared/GlassCard';
+import { TrendBadge } from '@/components/shared/TrendBadge';
 import { ChatbotCard } from '@/components/dashboard/ChatbotCard';
 import { CreateChatbotModal } from '@/components/dashboard/CreateChatbotModal';
 import { chatbotApi, ChatbotResponse } from '@/lib/api';
+import { computeTrend } from '@/lib/utils/trend';
+import { formatNumber } from '@/lib/utils/formatters';
 import type { ChatbotListItem, ChatbotStatus } from '@/types/chatbot';
 
 function mapChatbotToListItem(chatbot: ChatbotResponse): ChatbotListItem {
@@ -14,15 +17,22 @@ function mapChatbotToListItem(chatbot: ChatbotResponse): ChatbotListItem {
     training: 'draft',
     error: 'inactive',
     draft: 'draft',
+    inactive: 'inactive',
   };
   return {
     id: chatbot.id,
     name: chatbot.name,
     description: chatbot.description || '',
     status: statusMap[chatbot.status] || 'draft',
-    conversationCount: 0,
-    lastActiveAt: chatbot.created_at || undefined,
+    conversationCount: chatbot.conversation_count,
+    messageCount: chatbot.message_count,
+    documentCount: chatbot.document_count,
+    messagesThisWeek: chatbot.messages_this_week,
+    messagesPriorWeek: chatbot.messages_prior_week,
+    trend: computeTrend(chatbot.messages_this_week, chatbot.messages_prior_week),
+    lastActiveAt: chatbot.last_active_at || undefined,
     createdAt: chatbot.created_at || new Date().toISOString(),
+    icon: (chatbot.settings?.icon as string) || undefined,
   };
 }
 
@@ -61,12 +71,13 @@ export default function DashboardPage() {
     return matchesSearch && matchesStatus;
   });
 
-  const handleCreateChatbot = async (data: { name: string; description: string }) => {
+  const handleCreateChatbot = async (data: { name: string; description: string; icon?: string }) => {
     setIsCreating(true);
     try {
       const newChatbot = await chatbotApi.create({
         name: data.name,
         description: data.description,
+        icon: data.icon,
       });
       setChatbots([mapChatbotToListItem(newChatbot), ...chatbots]);
       setIsCreateModalOpen(false);
@@ -78,12 +89,50 @@ export default function DashboardPage() {
     }
   };
 
+  const handleDeleteChatbot = async (id: string) => {
+    if (!window.confirm('Delete this chatbot? This removes its knowledge base and cannot be undone.')) {
+      return;
+    }
+    try {
+      await chatbotApi.delete(id);
+      setChatbots((prev) => prev.filter((c) => c.id !== id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete chatbot');
+    }
+  };
+
+  const handleDuplicateChatbot = async (id: string) => {
+    try {
+      const duplicated = await chatbotApi.duplicate(id);
+      setChatbots((prev) => [mapChatbotToListItem(duplicated), ...prev]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to duplicate chatbot');
+    }
+  };
+
+  const handleToggleActive = async (chatbot: ChatbotListItem) => {
+    try {
+      const updated =
+        chatbot.status === 'live'
+          ? await chatbotApi.deactivate(chatbot.id)
+          : await chatbotApi.activate(chatbot.id);
+      setChatbots((prev) =>
+        prev.map((c) => (c.id === chatbot.id ? mapChatbotToListItem(updated) : c))
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update chatbot status');
+    }
+  };
+
+  const totalMessagesThisWeek = chatbots.reduce((sum, c) => sum + c.messagesThisWeek, 0);
+  const totalMessagesPriorWeek = chatbots.reduce((sum, c) => sum + c.messagesPriorWeek, 0);
+
   const stats = {
     total: chatbots.length,
     live: chatbots.filter((c) => c.status === 'live').length,
-    draft: chatbots.filter((c) => c.status === 'draft').length,
-    inactive: chatbots.filter((c) => c.status === 'inactive').length,
     totalConversations: chatbots.reduce((sum, c) => sum + c.conversationCount, 0),
+    messagesThisWeek: totalMessagesThisWeek,
+    messagesTrend: computeTrend(totalMessagesThisWeek, totalMessagesPriorWeek),
   };
 
   return (
@@ -116,23 +165,25 @@ export default function DashboardPage() {
           </GlassCard>
           <GlassCard padding="sm" className="text-center">
             <p className="text-2xl font-bold text-[#34C759]">{stats.live}</p>
-            <p className="text-sm text-[#86868B]">Live</p>
-          </GlassCard>
-          <GlassCard padding="sm" className="text-center">
-            <p className="text-2xl font-bold text-[#FF9500]">{stats.draft}</p>
-            <p className="text-sm text-[#86868B]">Drafts</p>
+            <p className="text-sm text-[#86868B]">Live Now</p>
           </GlassCard>
           <GlassCard padding="sm" className="text-center">
             <p className="text-2xl font-bold text-[#5B5EFF]">
-              {stats.totalConversations.toLocaleString()}
+              {formatNumber(stats.totalConversations)}
             </p>
             <p className="text-sm text-[#86868B]">Conversations</p>
+          </GlassCard>
+          <GlassCard padding="sm" className="text-center">
+            <div className="flex items-center justify-center gap-2">
+              <p className="text-2xl font-bold text-[#1D1D1F]">{formatNumber(stats.messagesThisWeek)}</p>
+              <TrendBadge trend={stats.messagesTrend} />
+            </div>
+            <p className="text-sm text-[#86868B]">Messages this week</p>
           </GlassCard>
         </div>
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          {/* Search */}
           <div className="relative flex-1">
             <svg
               className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#86868B]"
@@ -156,7 +207,6 @@ export default function DashboardPage() {
             />
           </div>
 
-          {/* Status Filter */}
           <div className="flex items-center gap-2 p-1 rounded-xl bg-white/50 border border-[#E5E5EA]">
             {(['all', 'live', 'draft', 'inactive'] as const).map((status) => (
               <button
@@ -176,8 +226,8 @@ export default function DashboardPage() {
 
         {/* Chatbots Grid */}
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {[1, 2, 3, 4].map((i) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
               <GlassCard key={i} className="animate-pulse">
                 <div className="h-6 bg-[#E5E5EA] rounded w-1/2 mb-3" />
                 <div className="h-4 bg-[#E5E5EA] rounded w-3/4 mb-4" />
@@ -205,9 +255,15 @@ export default function DashboardPage() {
             </button>
           </GlassCard>
         ) : filteredChatbots.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {filteredChatbots.map((chatbot) => (
-              <ChatbotCard key={chatbot.id} chatbot={chatbot} />
+              <ChatbotCard
+                key={chatbot.id}
+                chatbot={chatbot}
+                onDelete={handleDeleteChatbot}
+                onDuplicate={handleDuplicateChatbot}
+                onToggleActive={handleToggleActive}
+              />
             ))}
           </div>
         ) : (
@@ -245,7 +301,6 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Create Modal */}
       <CreateChatbotModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
