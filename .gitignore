@@ -10,8 +10,9 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# Anchored to repo root — a bare "lib/" also swallowed frontend/src/lib/ (app source)
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -85,3 +86,4 @@ temp/
 .claude/
 .claude-backup/
 .superpowers/
+node_modules/
