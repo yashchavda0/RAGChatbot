@@ -13,7 +13,7 @@ export default function PublicWidgetPage({ params }: { params: { chatbotId: stri
   const searchParams = useSearchParams();
   const apiBaseUrl = useMemo(() => {
     const fromQuery = searchParams.get('apiBaseUrl');
-    return (fromQuery || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/$/, '');
+    return (fromQuery || '/api').replace(/\/$/, '');
   }, [searchParams]);
 
   const [settings, setSettings] = useState<WidgetSurfaceSettings>(DEFAULT_WIDGET_SETTINGS);

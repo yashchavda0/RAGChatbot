@@ -105,7 +105,7 @@ interface CustomizationPageProps {
 
 export default function CustomizationPage({ params }: CustomizationPageProps) {
   const { chatbotId } = params;
-  const widgetApiBaseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/$/, '');
+  const widgetApiBaseUrl = '/api';
   const [settings, setSettings] = useState<CustomizationSettings>(defaultSettings);
   const [originalSettings, setOriginalSettings] = useState<CustomizationSettings>(defaultSettings);
   const [isSaving, setIsSaving] = useState(false);

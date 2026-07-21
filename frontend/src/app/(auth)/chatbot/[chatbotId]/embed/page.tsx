@@ -43,10 +43,15 @@ export default function EmbedPage({ params }: { params: { chatbotId: string } })
       setWidgetScriptUrl(`${window.location.origin}/widget.js`);
     }
   }, []);
-  const widgetApiBaseUrl =
-    process.env.NEXT_PUBLIC_WIDGET_API_BASE_URL ||
-    process.env.NEXT_PUBLIC_API_URL ||
-    'http://localhost:8000';
+  const [widgetApiBaseUrl, setWidgetApiBaseUrl] = useState(
+    process.env.NEXT_PUBLIC_WIDGET_API_BASE_URL || '/api'
+  );
+
+  useEffect(() => {
+    if (!process.env.NEXT_PUBLIC_WIDGET_API_BASE_URL && typeof window !== 'undefined') {
+      setWidgetApiBaseUrl(`${window.location.origin}/api`);
+    }
+  }, []);
 
   // The Embed tab no longer owns any settings. Load the single saved
   // configuration (read-only) so the preview reflects the real widget.

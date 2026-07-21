@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import type { ChatMessage, AgentExecution, Source } from "@ragchatbot/shared-types";
+import type {
+  ChatMessage,
+  AgentExecution,
+  Source,
+} from "@ragchatbot/shared-types";
 import { useWebSocket } from "./useWebSocket";
 
-const API_URL =
-  (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_API_URL) ||
-  "http://localhost:8000";
+const API_URL = "/api";
 
 interface UseChatOptions {
   apiBaseUrl?: string;

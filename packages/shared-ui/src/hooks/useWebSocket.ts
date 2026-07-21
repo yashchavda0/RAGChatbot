@@ -3,9 +3,12 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { WSMessage, AgentUpdateMessage } from "@ragchatbot/shared-types";
 
-const WS_URL =
-  (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_WS_URL) ||
-  "ws://localhost:8000";
+function getDefaultWsUrl(): string {
+  if (typeof window !== "undefined") {
+    return `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/ws`;
+  }
+  return "/ws";
+}
 
 interface UseWebSocketOptions {
   onMessage?: (message: WSMessage) => void;
@@ -86,7 +89,7 @@ export function useWebSocket({
       chatbotIdRef.current = chatbotId;
 
       try {
-        const wsBaseUrl = (wsUrl || WS_URL).replace(/\/$/, "");
+        const wsBaseUrl = (wsUrl || getDefaultWsUrl()).replace(/\/$/, "");
         const ws = new WebSocket(
           `${wsBaseUrl}/chat/${chatbotId}/ws?session_id=${sessionId}`,
         );

@@ -8,7 +8,7 @@ import { AuthInput } from '@/components/auth/AuthInput';
 import { AuthShell } from '@/components/auth/AuthShell';
 import { useAuthStore } from '@/stores/authStore';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_URL = '/api';
 
 // Icons
 const MailIcon = () => (

@@ -19,6 +19,13 @@ declare global {
   }
 }
 
+function resolveDefaultApiBaseUrl(): string {
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}/api`;
+  }
+  return '/api';
+}
+
 async function initWidget() {
   const config = window.RAGChatbot;
 
@@ -27,7 +34,7 @@ async function initWidget() {
     return;
   }
 
-  const apiBaseUrl = (config.apiBaseUrl || 'http://localhost:8000').replace(/\/$/, '');
+  const apiBaseUrl = (config.apiBaseUrl || resolveDefaultApiBaseUrl()).replace(/\/$/, '');
 
   let settings = DEFAULT_WIDGET_SETTINGS;
   try {

@@ -21,7 +21,7 @@ import { WorkflowGraph } from '@/components/agents/WorkflowGraph';
 import { AgentList } from '@/components/agents/AgentList';
 import { cn } from '@/lib/utils';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_URL = '/api';
 
 // Icon mapping for agents
 const agentIcons: Record<string, React.ReactNode> = {

@@ -81,7 +81,7 @@ export function DocumentUpload({ onUploadComplete }: DocumentUploadProps) {
     formData.append('file', file);
 
     try {
-      const response = await fetch('http://localhost:8000/documents/upload', {
+      const response = await fetch('/api/documents/upload', {
         method: 'POST',
         body: formData,
       });

@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_URL = "/api";
 
 export interface TaskStatus {
   task_id: string;
@@ -26,7 +26,7 @@ interface UseTaskPollingOptions {
 
 /**
  * Hook for polling Celery task status
- * 
+ *
  * @example
  * const { status, isLoading, isComplete, error } = useTaskPolling({
  *   taskId: taskId,
@@ -44,8 +44,8 @@ export function useTaskPolling({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isComplete = status?.state === 'SUCCESS' || status?.state === 'FAILURE';
-  const isFailed = status?.state === 'FAILURE';
+  const isComplete = status?.state === "SUCCESS" || status?.state === "FAILURE";
+  const isFailed = status?.state === "FAILURE";
 
   const fetchStatus = useCallback(async () => {
     if (!taskId) return;
@@ -60,13 +60,14 @@ export function useTaskPolling({
       setStatus(data);
 
       // Call callbacks
-      if (data.state === 'SUCCESS' && onComplete) {
+      if (data.state === "SUCCESS" && onComplete) {
         onComplete(data.result);
-      } else if (data.state === 'FAILURE' && onError) {
-        onError(data.error || 'Task failed');
+      } else if (data.state === "FAILURE" && onError) {
+        onError(data.error || "Task failed");
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch task status';
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to fetch task status";
       setError(errorMessage);
       if (onError) {
         onError(errorMessage);
@@ -105,10 +106,9 @@ export function useTaskPolling({
     isFailed,
     error,
     progress: status?.progress || 0,
-    message: status?.message || '',
+    message: status?.message || "",
   };
 }
-
 
 /**
  * Cancel a running Celery task
@@ -116,15 +116,14 @@ export function useTaskPolling({
 export async function cancelTask(taskId: string): Promise<boolean> {
   try {
     const response = await fetch(`${API_URL}/tasks/${taskId}`, {
-      method: 'DELETE',
+      method: "DELETE",
     });
     return response.ok;
   } catch (error) {
-    console.error('Failed to cancel task:', error);
+    console.error("Failed to cancel task:", error);
     return false;
   }
 }
-
 
 /**
  * Get all tasks for a chatbot
@@ -135,15 +134,15 @@ export async function getChatbotTasks(
     task_type?: string;
     status?: string;
     limit?: number;
-  }
+  },
 ): Promise<TaskStatus[]> {
   try {
     const params = new URLSearchParams();
-    if (options?.task_type) params.append('task_type', options.task_type);
-    if (options?.status) params.append('status', options.status);
-    if (options?.limit) params.append('limit', options.limit.toString());
+    if (options?.task_type) params.append("task_type", options.task_type);
+    if (options?.status) params.append("status", options.status);
+    if (options?.limit) params.append("limit", options.limit.toString());
 
-    const url = `${API_URL}/tasks/chatbot/${chatbotId}${params.toString() ? '?' + params.toString() : ''}`;
+    const url = `${API_URL}/tasks/chatbot/${chatbotId}${params.toString() ? "?" + params.toString() : ""}`;
     const response = await fetch(url);
 
     if (!response.ok) {
@@ -152,7 +151,7 @@ export async function getChatbotTasks(
 
     return await response.json();
   } catch (error) {
-    console.error('Failed to fetch chatbot tasks:', error);
+    console.error("Failed to fetch chatbot tasks:", error);
     return [];
   }
 }

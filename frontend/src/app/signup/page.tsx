@@ -9,7 +9,7 @@ import { AuthShell } from '@/components/auth/AuthShell';
 import { useAuthStore } from '@/stores/authStore';
 import { cn } from '@/lib/utils';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_URL = '/api';
 
 // Icons
 const UserIcon = () => (
