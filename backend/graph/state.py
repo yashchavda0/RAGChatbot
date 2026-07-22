@@ -133,6 +133,11 @@ class RAGState(TypedDict):
     from_web_search_only: bool  # True if response is from web search only
     token_usage: Dict[str, Any]
 
+    # Clarification (per-chatbot opt-in; loaded by session_loader)
+    clarification_enabled: bool  # From chatbot.settings.clarification_enabled
+    consecutive_clarifications: int  # Streak of prior clarify turns for this session
+    requires_clarification: bool  # True if THIS turn's final_response is a clarifying question
+
     # Agent execution tracking
     agent_executions: List[Dict[str, Any]]
     current_agent: Optional[str]
@@ -221,6 +226,9 @@ def create_initial_state(
         "response_sources": [],
         "from_web_search_only": False,
         "token_usage": {},
+        "clarification_enabled": False,
+        "consecutive_clarifications": 0,
+        "requires_clarification": False,
         "agent_executions": [],
         "current_agent": None,
         "session_id": session_id,

@@ -30,6 +30,30 @@ _BACKEND_INSTRUCTIONS = """
 
 _WEB_NOTE = "\n- This answer is based on web search results, not uploaded documents."
 
+_CLARIFY_INSTRUCTIONS = """
+
+## Clarification Mode
+Using the conversation history to resolve references like "it", "that", or "the previous one", \
+decide whether the User Query can be answered clearly and unambiguously from the Context below.
+- If YES: give a normal grounded answer.
+- If NO — the query is ambiguous, underspecified, or could reasonably mean two or more different \
+things, and the Context does not resolve which — do NOT guess. Ask exactly one short, specific \
+clarifying question instead.
+
+Wrap your ENTIRE reply in exactly one of:
+<answer>...</answer>
+<clarify><question>...</question><options><option>...</option><option>...</option></options></clarify>
+The <options> block is OPTIONAL — include it only when there are 2-3 clearly enumerable likely \
+meanings, each written as a short standalone follow-up the user could send as-is. Output nothing \
+outside these tags."""
+
+_CLARIFY_OVERRIDE = """
+
+## Clarification Cap Reached
+You have already asked a clarifying question in each of the last 2 turns. Do NOT ask another. \
+You MUST give your best-effort <answer> now using the available Context and conversation history, \
+even if some ambiguity remains — state any assumption briefly if useful."""
+
 _SAFE_FACTS = [
     "Honey never spoils. Sealed honey has been found in ancient containers and remained edible for thousands of years.",
     "Octopuses have three hearts, and two of them stop beating while the animal swims.",
@@ -105,6 +129,25 @@ def parse_answer(response: str) -> str:
     response = re.sub(r"</?answer>", "", response)
     response = re.sub(r"<sources>.*?</sources>", "", response, flags=re.DOTALL)
     return response.strip()
+
+
+def parse_synthesis_output(response: str) -> tuple[str, str, list[str]]:
+    """Parse clarify-mode LLM output. Returns (mode, text, options).
+
+    mode is "clarify" or "answer". Any output without a well-formed <clarify>
+    block is treated as a normal answer (mirrors parse_answer's own graceful
+    degrade for malformed tags), so a model that ignores the clarify
+    convention never breaks the turn.
+    """
+    clarify_match = re.search(r"<clarify>\s*(.*?)\s*</clarify>", response, re.DOTALL)
+    if clarify_match:
+        block = clarify_match.group(1)
+        q_match = re.search(r"<question>\s*(.*?)\s*</question>", block, re.DOTALL)
+        options = re.findall(r"<option>\s*(.*?)\s*</option>", block, re.DOTALL)
+        question = (q_match.group(1) if q_match else block).strip()
+        if question:
+            return "clarify", question, [o.strip() for o in options if o.strip()][:3]
+    return "answer", parse_answer(response), []
 
 
 def _normalize_terms(query: str) -> list[str]:
@@ -282,6 +325,7 @@ def _set_fallback_response(state: RAGState, query: str, fallback_reason: str) ->
 
     state["final_response"] = response
     state["fallback_reason"] = fallback_reason
+    state["requires_clarification"] = False
     state["suggested_questions"] = suggestions
     state["response_sources"] = []
     state["answer_source"] = "fallback"
@@ -429,7 +473,16 @@ class ResponseSynthesisAgent(BaseAgent):
 
             system_prompt = state.get("system_prompt", "You are a helpful assistant.")
             extra = _WEB_NOTE if answer_source == "web" else ""
-            full_system = f"{system_prompt}\n{_BACKEND_INSTRUCTIONS}{extra}"
+            clarify_mode = bool(state.get("clarification_enabled"))
+            if clarify_mode:
+                extra_clarify = (
+                    _CLARIFY_OVERRIDE
+                    if state.get("consecutive_clarifications", 0) >= 2
+                    else _CLARIFY_INSTRUCTIONS
+                )
+                full_system = f"{system_prompt}\n{_BACKEND_INSTRUCTIONS}{extra}{extra_clarify}"
+            else:
+                full_system = f"{system_prompt}\n{_BACKEND_INSTRUCTIONS}{extra}"
 
             retry_note = (
                 "\n\nNote: your previous answer scored low for source relevance. "
@@ -448,8 +501,10 @@ class ResponseSynthesisAgent(BaseAgent):
                     f"{m.get('role', 'user')}: {m.get('content', '')}" for m in history
                 ]
                 history_block = (
-                    "Recent conversation (use ONLY to understand intent and references; "
-                    "do NOT treat it as a source of facts):\n"
+                    "Recent conversation (use ONLY to resolve references like 'it', 'that', "
+                    "'the previous one', and to understand what the user is really asking; "
+                    "do NOT treat it as a source of facts — facts must come only from the "
+                    "Context below):\n"
                     + "\n".join(history_lines)
                     + "\n\n"
                 )
@@ -467,9 +522,18 @@ class ResponseSynthesisAgent(BaseAgent):
             )
 
             gen_latency_ms = (time.monotonic() - t_start) * 1000
-            clean = parse_answer(response)
 
-            if _is_insufficient_answer(clean):
+            if clarify_mode:
+                mode, clean, clarify_options = parse_synthesis_output(response)
+                if mode == "clarify" and state.get("consecutive_clarifications", 0) >= 2:
+                    logger.warning(
+                        "Model returned <clarify> despite cap override; forcing answer."
+                    )
+                    mode, clean, clarify_options = "answer", parse_answer(response), []
+            else:
+                mode, clean, clarify_options = "answer", parse_answer(response), []
+
+            if mode == "answer" and _is_insufficient_answer(clean):
                 _set_fallback_response(state, query, "no_results")
                 state["generation_latency_ms"] = gen_latency_ms
                 update_agent_execution(
@@ -502,14 +566,6 @@ class ResponseSynthesisAgent(BaseAgent):
                 "total_tokens": int(prompt_tok) + int(comp_tok),
             }
 
-            state["final_response"] = clean
-            state["fallback_reason"] = None
-            state["suggested_questions"] = []
-            state["response_sources"] = sources
-            state["token_usage"] = token_usage
-            state["generation_latency_ms"] = gen_latency_ms
-            state["from_web_search_only"] = answer_source == "web"
-
             obs.log_token_usage(
                 trace_id,
                 int(prompt_tok),
@@ -517,7 +573,42 @@ class ResponseSynthesisAgent(BaseAgent):
                 int(prompt_tok) + int(comp_tok),
             )
 
-            # Store in response cache
+            if mode == "clarify":
+                state["final_response"] = clean
+                state["requires_clarification"] = True
+                state["fallback_reason"] = None
+                state["suggested_questions"] = clarify_options
+                state["response_sources"] = []
+                state["token_usage"] = token_usage
+                state["generation_latency_ms"] = gen_latency_ms
+                update_agent_execution(
+                    state,
+                    self.agent_id,
+                    self.agent_name,
+                    "completed",
+                    {"query": query},
+                    {
+                        "response_length": len(clean),
+                        "answer_source": answer_source,
+                        "generation_latency_ms": round(gen_latency_ms, 1),
+                        "total_tokens": token_usage["total_tokens"],
+                        "requires_clarification": True,
+                    },
+                )
+                return state
+
+            state["final_response"] = clean
+            state["requires_clarification"] = False
+            state["fallback_reason"] = None
+            state["suggested_questions"] = []
+            state["response_sources"] = sources
+            state["token_usage"] = token_usage
+            state["generation_latency_ms"] = gen_latency_ms
+            state["from_web_search_only"] = answer_source == "web"
+
+            # Store in response cache. Clarify turns return above and never reach
+            # here — the cache key has no session component, so caching a
+            # clarifying question would leak it to unrelated sessions.
             q_hash = cache.compute_query_hash(
                 state.get("original_query") or query,
                 state.get("chatbot_id", ""),

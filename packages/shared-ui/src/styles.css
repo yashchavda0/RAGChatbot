@@ -997,7 +997,7 @@
 
 @layer components {
   .prose-apple {
-    @apply text-sm leading-relaxed;
+    @apply text-sm leading-relaxed break-words;
   }
 
   .prose-apple p {
@@ -1046,7 +1046,11 @@
   .prose-apple h4 { @apply text-sm; }
 
   .prose-apple table {
-    @apply w-full border-collapse my-3 text-sm;
+    @apply w-full border-collapse text-sm;
+  }
+
+  .prose-apple .table-scroll {
+    @apply my-3 max-w-full overflow-x-auto;
   }
 
   .prose-apple th {

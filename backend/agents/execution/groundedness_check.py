@@ -61,6 +61,17 @@ class GroundednessCheckAgent(BaseAgent):
             )
             return state
 
+        # A clarifying question is intentionally not grounded in source content —
+        # scoring/retrying it would fight the clarify decision made upstream.
+        if state.get("requires_clarification"):
+            state["groundedness_score"] = 0.0
+            state["should_retry"] = False
+            update_agent_execution(
+                state, self.agent_id, self.agent_name, "completed",
+                {}, {"groundedness_score": 0.0, "should_retry": False, "reason": "clarification_turn"},
+            )
+            return state
+
         # Nothing to check or a hard failure upstream → end, don't loop.
         if state.get("error") or not answer:
             state["groundedness_score"] = 0.0

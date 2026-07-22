@@ -29,13 +29,15 @@ class SessionLoaderAgent(BaseAgent):
             {"session_id": session_id, "chatbot_id": chatbot_id},
         )
 
-        # 1. Resolve reasoning mode from chatbot settings
-        reasoning_mode = await self._load_reasoning_mode(chatbot_id)
+        # 1. Resolve reasoning mode + clarification toggle from chatbot settings
+        reasoning_mode, clarification_enabled = await self._load_chatbot_config(chatbot_id)
         state["reasoning_mode"] = reasoning_mode
+        state["clarification_enabled"] = clarification_enabled
 
         # 2. Load conversation history (prior turns) for follow-up context
-        conversation_history = await self._load_conversation_history(session_id)
+        conversation_history, consecutive_clarifications = await self._load_conversation_history(session_id)
         state["conversation_history"] = conversation_history
+        state["consecutive_clarifications"] = consecutive_clarifications
 
         # 3. Load session context
         session_context = await self._load_session_context(session_id, state)
@@ -57,15 +59,19 @@ class SessionLoaderAgent(BaseAgent):
         )
         return state
 
-    async def _load_conversation_history(self, session_id: str) -> list:
+    async def _load_conversation_history(self, session_id: str) -> tuple:
         """Load recent prior turns (excluding the current turn) from Postgres.
 
-        Returns the last N messages as compact [{role, content}] dicts, oldest→newest,
-        with content truncated to bound token cost. The current user message is written
-        to Postgres only after the graph runs, so this yields exactly the prior conversation.
+        Returns (trimmed_history, consecutive_clarifications):
+        - trimmed_history: last N messages as compact [{role, content}] dicts,
+          oldest→newest, content truncated to bound token cost. The current user
+          message is written to Postgres only after the graph runs, so this yields
+          exactly the prior conversation.
+        - consecutive_clarifications: how many of the most recent assistant turns
+          in a row were clarifying questions (used to cap repeated clarify loops).
         """
         if not session_id:
-            return []
+            return [], 0
         try:
             from services.session_manager import get_session_manager
             history = await get_session_manager().get_conversation_history(
@@ -73,7 +79,16 @@ class SessionLoaderAgent(BaseAgent):
             )
         except Exception as exc:
             logger.debug("Could not load conversation history: %s", exc)
-            return []
+            return [], 0
+
+        streak = 0
+        for msg in reversed(history):
+            if msg.get("role") != "assistant":
+                continue
+            if (msg.get("meta_data") or {}).get("requires_clarification"):
+                streak += 1
+            else:
+                break
 
         max_turns = settings.conversation_history_limit
         if len(history) > max_turns:
@@ -86,20 +101,23 @@ class SessionLoaderAgent(BaseAgent):
             content = (msg.get("content") or "").strip()
             if role in ("user", "assistant") and content:
                 trimmed.append({"role": role, "content": content[:char_limit]})
-        return trimmed
+        return trimmed, streak
 
-    async def _load_reasoning_mode(self, chatbot_id: str) -> str:
+    async def _load_chatbot_config(self, chatbot_id: str) -> tuple:
+        """Returns (reasoning_mode, clarification_enabled) from chatbot.settings."""
         try:
             from services.chatbot_service import get_chatbot_service
             chatbot = await get_chatbot_service().get(chatbot_id)
             if chatbot:
                 chatbot_settings = chatbot.get("settings") or {}
                 mode = chatbot_settings.get("reasoning_mode", settings.default_reasoning_mode)
-                if mode in ("fast_rag", "multi_step", "research", "expert_review"):
-                    return mode
+                if mode not in ("fast_rag", "multi_step", "research", "expert_review"):
+                    mode = settings.default_reasoning_mode
+                clarification_enabled = bool(chatbot_settings.get("clarification_enabled", False))
+                return mode, clarification_enabled
         except Exception as exc:
-            logger.debug("Could not load chatbot settings for reasoning_mode: %s", exc)
-        return settings.default_reasoning_mode
+            logger.debug("Could not load chatbot settings: %s", exc)
+        return settings.default_reasoning_mode, False
 
     async def _load_session_context(self, session_id: str, state: RAGState) -> dict:
         if not session_id:

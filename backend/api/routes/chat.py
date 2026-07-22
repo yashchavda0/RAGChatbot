@@ -129,6 +129,7 @@ async def chat(
                 role="assistant",
                 content=cached_resp.get("final_response", ""),
                 sources=cached_resp.get("response_sources", []),
+                metadata={"requires_clarification": False},
             )
             await session_manager.update_activity(chat_message.session_id)
             return ChatResponse(
@@ -169,6 +170,7 @@ async def chat(
             content=response,
             sources=sources,
             agent_executions=agent_executions,
+            metadata={"requires_clarification": bool(state.get("requires_clarification", False))},
         )
         await session_manager.update_activity(chat_message.session_id)
 
@@ -378,6 +380,11 @@ async def chat_websocket(
                     role="assistant",
                     content=response,
                     sources=sources,
+                    metadata={
+                        "requires_clarification": bool(
+                            final_state.get("requires_clarification", False)
+                        )
+                    },
                 )
                 await session_manager.update_activity(session_id)
 

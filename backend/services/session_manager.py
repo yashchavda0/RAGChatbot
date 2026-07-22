@@ -204,6 +204,7 @@ class SessionManagerService:
                         "role": msg.role,
                         "content": msg.content,
                         "sources": msg.sources,
+                        "meta_data": msg.meta_data or {},
                         "timestamp": msg.timestamp.isoformat(),
                     }
                     for msg in messages

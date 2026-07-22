@@ -146,6 +146,11 @@ export const MessageBubble = memo(function MessageBubble({
                       {children}
                     </blockquote>
                   ),
+                  table: ({ children }) => (
+                    <div className="table-scroll">
+                      <table>{children}</table>
+                    </div>
+                  ),
                 }}
               >
                 {message.content}

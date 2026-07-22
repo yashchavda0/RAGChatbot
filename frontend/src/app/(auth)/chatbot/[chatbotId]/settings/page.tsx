@@ -29,6 +29,7 @@ interface AIModelSettings {
   temperature: number;
   maxTokens: number;
   systemPrompt: string;
+  clarificationEnabled: boolean;
 }
 
 interface RateLimitSettings {
@@ -65,6 +66,7 @@ const getDefaultSettings = (): AllSettings => ({
     temperature: 0.7,
     maxTokens: 2048,
     systemPrompt: '',
+    clarificationEnabled: false,
   },
   rateLimit: {
     maxMessagesPerConversation: 100,
@@ -128,6 +130,7 @@ export default function SettingsPage({ params }: SettingsPageProps) {
             temperature: s.temperature ?? 0.7,
             maxTokens: s.max_tokens ?? 2048,
             systemPrompt: chatbot.system_prompt || '',
+            clarificationEnabled: s.clarification_enabled ?? false,
           },
           rateLimit: {
             maxMessagesPerConversation: s.max_messages_per_conversation ?? 100,
@@ -185,6 +188,7 @@ export default function SettingsPage({ params }: SettingsPageProps) {
             model: settings.aiModel.model,
             temperature: settings.aiModel.temperature,
             max_tokens: settings.aiModel.maxTokens,
+            clarification_enabled: settings.aiModel.clarificationEnabled,
           },
         });
       } else if (section === 'rateLimit') {
@@ -411,6 +415,16 @@ export default function SettingsPage({ params }: SettingsPageProps) {
                   onChange={(e) => updateSection('aiModel', { maxTokens: parseInt(e.target.value) || 0 })}
                   min={100}
                   max={8192}
+                />
+              </SettingRow>
+
+              <SettingRow
+                label="Ask Clarifying Questions"
+                description="When the chatbot can't clearly answer from context, ask the user to clarify instead of guessing"
+              >
+                <Toggle
+                  checked={settings.aiModel.clarificationEnabled}
+                  onChange={(checked) => updateSection('aiModel', { clarificationEnabled: checked })}
                 />
               </SettingRow>
 
