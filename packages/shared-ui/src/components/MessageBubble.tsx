@@ -72,21 +72,21 @@ export const MessageBubble = memo(function MessageBubble({
 
       <div
         className={cn(
-          'flex flex-col max-w-[var(--message-max-width,85%)]',
+          'flex flex-col min-w-0 max-w-[var(--message-max-width,85%)]',
           isUser ? 'items-end' : 'items-start'
         )}
       >
         {/* Message Bubble */}
         <div
           className={cn(
-            'relative px-4 py-3 text-sm leading-relaxed',
+            'relative px-4 py-3 text-sm leading-relaxed min-w-0 overflow-hidden',
             isUser
               ? 'bg-primary text-primary-foreground rounded-2xl rounded-br-md shadow-sm'
               : 'bg-card text-card-foreground rounded-2xl rounded-bl-md shadow-card border'
           )}
         >
           {isUser ? (
-            <p className="whitespace-pre-wrap break-words">{message.content}</p>
+            <p className="whitespace-pre-wrap break-all">{message.content}</p>
           ) : isEmpty && isLoading ? (
             <div className="flex gap-1.5 py-1">
               <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:0ms]" />

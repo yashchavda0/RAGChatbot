@@ -81,7 +81,7 @@ export const MessageList = memo(function MessageList({
     <ScrollArea ref={scrollAreaRef} className="h-full w-full scrollbar-thin">
       <div
         className={cn(
-          'mx-auto',
+          'mx-auto overflow-x-hidden',
           compact ? 'max-w-none px-3 py-3 space-y-3' : 'max-w-3xl px-4 py-6 lg:px-6 space-y-5'
         )}
       >
