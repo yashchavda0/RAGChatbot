@@ -315,7 +315,7 @@ services:
   # Usage: docker-compose --profile tools run --rm widget-build
   # ============================================
   widget-build:
-    image: node:18-alpine
+    image: node:20-alpine
     container_name: rag-widget-build
     working_dir: /workspace
     volumes:
