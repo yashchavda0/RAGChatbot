@@ -376,12 +376,12 @@ export function WidgetChatSurface({
                   disabled={isLoading}
                   style={{
                     flex: 1,
-                    minHeight: 24,
-                    maxHeight: 120,
+                    height: 36,
                     padding: '8px 0',
                     margin: 0,
                     display: 'block',
                     resize: 'none',
+                    overflow: 'hidden',
                     border: 0,
                     outline: 'none',
                     background: 'transparent',
@@ -415,6 +415,11 @@ export function WidgetChatSurface({
                   <SendIcon />
                 </button>
               </div>
+              {inputValue.length > settings.inputMaxChars * 0.8 && (
+                <p style={{ margin: '4px 14px 0', fontSize: 11, textAlign: 'right', color: inputValue.length >= settings.inputMaxChars ? '#FF3B30' : '#6E6E73' }}>
+                  {inputValue.length}/{settings.inputMaxChars}
+                </p>
+              )}
             </div>
 
             {settings.showBranding && (
