@@ -107,12 +107,12 @@ app = FastAPI(
 )
 
 # Allow local widget embeds (including file://, which appears as Origin: null)
-# in development, while preserving strict production behavior from settings.
+# and sandboxed iframes. The widget is public so null origin must be allowed
+# in all environments.
 cors_origins = list(settings.cors_origins)
-if settings.environment != "production":
-    for extra_origin in ["null", "http://localhost", "http://127.0.0.1"]:
-        if extra_origin not in cors_origins:
-            cors_origins.append(extra_origin)
+for extra_origin in ["null", "http://localhost", "http://127.0.0.1"]:
+    if extra_origin not in cors_origins:
+        cors_origins.append(extra_origin)
 
 app.add_middleware(
     CORSMiddleware,
