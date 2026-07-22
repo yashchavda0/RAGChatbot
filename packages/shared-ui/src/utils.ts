@@ -27,6 +27,44 @@ export function cn(...classes: ClassValue[]): string {
   return out.join(" ");
 }
 
+const VISITOR_SESSION_PREFIX = 'rag_widget_visitor_session_';
+
+/**
+ * Returns a session id unique to this browser + chatbot, persisted in
+ * localStorage so it survives reloads. Without this, every visitor to a
+ * given chatbot's widget would share one hardcoded session id, and the
+ * backend would merge all of their conversations into a single thread.
+ */
+export function getOrCreateVisitorSessionId(chatbotId: string): string {
+  const key = `${VISITOR_SESSION_PREFIX}${chatbotId}`;
+  if (typeof window === 'undefined') {
+    return `widget-${chatbotId}`;
+  }
+  try {
+    const existing = window.localStorage.getItem(key);
+    if (existing) return existing;
+    const created = crypto.randomUUID();
+    window.localStorage.setItem(key, created);
+    return created;
+  } catch {
+    return `widget-${chatbotId}`;
+  }
+}
+
+/** Generates and persists a brand new visitor session id, replacing any existing one. */
+export function rotateVisitorSessionId(chatbotId: string): string {
+  const key = `${VISITOR_SESSION_PREFIX}${chatbotId}`;
+  const created = crypto.randomUUID();
+  if (typeof window !== 'undefined') {
+    try {
+      window.localStorage.setItem(key, created);
+    } catch {
+      // ignore — session just won't survive a reload
+    }
+  }
+  return created;
+}
+
 /**
  * Formats a timestamp to a readable string.
  */

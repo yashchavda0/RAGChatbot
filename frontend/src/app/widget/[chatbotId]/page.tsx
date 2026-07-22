@@ -46,7 +46,6 @@ export default function PublicWidgetPage({ params }: { params: { chatbotId: stri
     <main className="h-screen w-screen overflow-hidden bg-transparent">
       <WidgetChatSurface
         chatbotId={params.chatbotId}
-        sessionId={`widget-${params.chatbotId}`}
         settings={settings}
         apiBaseUrl={apiBaseUrl}
       />

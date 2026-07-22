@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import type { ChatMessage } from '@ragchatbot/shared-types';
 import { useChat } from '../hooks/useChat';
 import { MessageList } from './MessageList';
-import { hexToHslTriplet } from '../utils';
+import { hexToHslTriplet, getOrCreateVisitorSessionId, rotateVisitorSessionId } from '../utils';
 
 export interface WidgetSurfaceSettings {
   primaryColor: string;
@@ -26,7 +26,13 @@ export interface WidgetSurfaceSettings {
 
 interface WidgetChatSurfaceProps {
   chatbotId: string;
-  sessionId: string;
+  /**
+   * Used verbatim only when `preview` is true (owner-facing preview surfaces,
+   * one session per page load is fine there). For real end-user widgets this
+   * is ignored — a per-visitor id is generated and persisted instead, so
+   * different visitors to the same chatbot never share one conversation.
+   */
+  sessionId?: string;
   settings: WidgetSurfaceSettings;
   apiBaseUrl?: string;
   preview?: boolean;
@@ -123,9 +129,17 @@ function CloseIcon() {
   );
 }
 
+function NewChatIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
 export function WidgetChatSurface({
   chatbotId,
-  sessionId,
+  sessionId: initialSessionIdProp,
   settings,
   apiBaseUrl,
   preview = false,
@@ -134,6 +148,9 @@ export function WidgetChatSurface({
   const resolvedFont = FONT_FAMILIES[settings.fontFamily] || FONT_FAMILIES.Inter;
   const [isOpen, setIsOpen] = useState(preview ? true : settings.autoOpen);
   const [inputValue, setInputValue] = useState('');
+  const [sessionId, setSessionId] = useState(() =>
+    preview ? initialSessionIdProp || `preview-${chatbotId}` : getOrCreateVisitorSessionId(chatbotId)
+  );
 
   const wsUrl = useMemo(() => deriveWsUrl(apiBaseUrl), [apiBaseUrl]);
   const primaryHsl = useMemo(() => hexToHslTriplet(settings.primaryColor), [settings.primaryColor]);
@@ -143,11 +160,16 @@ export function WidgetChatSurface({
   const previewStackHeight = panel.height + 8 + 56;
   const previewContainerHeight = Math.max(600, previewStackHeight + 48);
 
-  const { messages, isLoading, isStreaming, sendMessage } = useChat(chatbotId, sessionId, {
+  const { messages, isLoading, isStreaming, sendMessage, clearMessages } = useChat(chatbotId, sessionId, {
     apiBaseUrl,
     wsUrl,
     persist: !preview,
   });
+
+  const handleNewChat = () => {
+    clearMessages();
+    setSessionId(preview ? crypto.randomUUID() : rotateVisitorSessionId(chatbotId));
+  };
 
   useEffect(() => {
     if (preview) {
@@ -320,6 +342,29 @@ export function WidgetChatSurface({
                 </h3>
                 <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.82)' }}>Online</p>
               </div>
+
+              <button
+                type="button"
+                onClick={handleNewChat}
+                disabled={messages.length === 0}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 999,
+                  border: 0,
+                  background: 'rgba(255,255,255,0.12)',
+                  color: '#FFFFFF',
+                  cursor: messages.length === 0 ? 'default' : 'pointer',
+                  opacity: messages.length === 0 ? 0.45 : 1,
+                  display: 'grid',
+                  placeItems: 'center',
+                  flexShrink: 0,
+                }}
+                aria-label="Start new chat"
+                title="Start new chat"
+              >
+                <NewChatIcon />
+              </button>
 
               <button
                 type="button"
