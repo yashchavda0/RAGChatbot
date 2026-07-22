@@ -79,7 +79,7 @@ export const MessageBubble = memo(function MessageBubble({
         {/* Message Bubble */}
         <div
           className={cn(
-            'relative px-4 py-3 text-sm leading-relaxed min-w-0 overflow-hidden',
+            'relative px-4 py-3 text-sm leading-relaxed min-w-0',
             isUser
               ? 'bg-primary text-primary-foreground rounded-2xl rounded-br-md shadow-sm'
               : 'bg-card text-card-foreground rounded-2xl rounded-bl-md shadow-card border'
