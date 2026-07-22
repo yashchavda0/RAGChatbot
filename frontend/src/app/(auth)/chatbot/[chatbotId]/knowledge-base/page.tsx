@@ -68,9 +68,10 @@ export default function KnowledgeBasePage({ params }: KnowledgeBasePageProps) {
       }));
 
       // Separate documents and URLs using source_type from backend
-      const docList = mappedDocs.filter((d: any) => d.sourceType !== 'url' && d.sourceType !== 'website');
+      const URL_TYPES = ['url', 'website', 'crawled_page'];
+      const docList = mappedDocs.filter((d: any) => !URL_TYPES.includes(d.sourceType));
       const urlList = mappedDocs
-        .filter((d: any) => d.sourceType === 'url' || d.sourceType === 'website')
+        .filter((d: any) => URL_TYPES.includes(d.sourceType))
         .map((d: any) => ({
           id: d.id,
           url: d.name,
@@ -96,7 +97,7 @@ export default function KnowledgeBasePage({ params }: KnowledgeBasePageProps) {
   // Poll for processing status updates
   useEffect(() => {
     const interval = setInterval(async () => {
-      const processingDocs = documents.filter(d => d.status === 'processing');
+      const processingDocs = [...documents, ...urls].filter(d => d.status === 'processing');
       if (processingDocs.length > 0) {
         try {
           const response = await documentApi.list(chatbotId);
@@ -113,9 +114,10 @@ export default function KnowledgeBasePage({ params }: KnowledgeBasePageProps) {
             error: doc.error_message,
             sourceType: doc.source_type,
           }));
-          setDocuments(mappedDocs.filter((d: any) => d.sourceType !== 'url' && d.sourceType !== 'website'));
+          const URL_TYPES = ['url', 'website', 'crawled_page'];
+          setDocuments(mappedDocs.filter((d: any) => !URL_TYPES.includes(d.sourceType)));
           setUrls(mappedDocs
-            .filter((d: any) => d.sourceType === 'url' || d.sourceType === 'website')
+            .filter((d: any) => URL_TYPES.includes(d.sourceType))
             .map((d: any) => ({
               id: d.id,
               url: d.name,
