@@ -388,23 +388,6 @@ export function WidgetChatSurface({
                     lineHeight: 1.3,
                   }}
                 />
-                <span
-                  aria-live="polite"
-                  style={{
-                    fontSize: 10,
-                    whiteSpace: 'nowrap',
-                    flexShrink: 0,
-                    minWidth: 38,
-                    textAlign: 'right',
-                    color: inputValue.length >= settings.inputMaxChars ? '#FF3B30' : '#9E9EA6',
-                    opacity: inputValue.length >= Math.floor(settings.inputMaxChars * 0.8) ? 1 : 0,
-                    transition: 'opacity 0.15s',
-                    pointerEvents: 'none',
-                    userSelect: 'none',
-                  }}
-                >
-                  {inputValue.length}/{settings.inputMaxChars}
-                </span>
                 <button
                   type="button"
                   onClick={() => {
