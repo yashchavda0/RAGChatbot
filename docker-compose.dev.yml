@@ -314,6 +314,19 @@ services:
     networks:
       - backend
 
+  widget-build:
+    image: node:18-alpine
+    container_name: rag-widget-build-dev
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - widget_dev_nm:/workspace/node_modules
+      - widget_dev_npm_cache:/root/.npm
+    command: sh -c "npm ci --prefer-offline && npm run build:widget"
+    profiles:
+      - tools
+    restart: "no"
+
   # ==========================================================================
   # FRONTEND (Next.js with hot-reload)
   # ==========================================================================
@@ -373,3 +386,5 @@ volumes:
   etcd_dev_data:
   minio_dev_data:
   milvus_dev_data:
+  widget_dev_nm:
+  widget_dev_npm_cache:

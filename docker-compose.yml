@@ -311,6 +311,23 @@ services:
       - milvus
 
   # ============================================
+  # Widget Build (one-shot utility)
+  # Usage: docker-compose --profile tools run --rm widget-build
+  # ============================================
+  widget-build:
+    image: node:18-alpine
+    container_name: rag-widget-build
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - widget_nm:/workspace/node_modules
+      - widget_npm_cache:/root/.npm
+    command: sh -c "npm ci --prefer-offline && npm run build:widget"
+    profiles:
+      - tools
+    restart: "no"
+
+  # ============================================
   # Frontend (Next.js)
   # ============================================
   frontend:
@@ -330,6 +347,8 @@ services:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
       - NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL:-ws://localhost:8000}
       - NODE_ENV=production
+    volumes:
+      - ./frontend/public:/app/frontend/public
     depends_on:
       backend:
         condition: service_healthy
@@ -373,3 +392,5 @@ volumes:
   minio_data:
   redis_data:
   backend_data:
+  widget_nm:
+  widget_npm_cache:
