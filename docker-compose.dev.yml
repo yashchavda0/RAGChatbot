@@ -325,6 +325,10 @@ services:
       target: development
     container_name: rag-frontend-dev
     environment:
+      # Server-side upstream — used by the /api/* proxy route handler (never sent to browser)
+      INTERNAL_BACKEND_URL: http://backend:8000
+      INTERNAL_BACKEND_WS_URL: ws://backend:8000
+      # Browser-side fallback — still needed for dev local runs outside Docker
       NEXT_PUBLIC_API_URL: http://localhost:8000
       NEXT_PUBLIC_WS_URL: ws://localhost:8000
       NODE_ENV: development
@@ -347,6 +351,8 @@ services:
     restart: unless-stopped
     stdin_open: true
     tty: true
+    networks:
+      - backend
 
 # ==========================================================================
 # NETWORKS
