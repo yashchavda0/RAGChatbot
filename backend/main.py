@@ -1,6 +1,7 @@
 """
 RAG Chatbot API - Main Application Entry Point
 """
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -22,6 +23,7 @@ async def _warmup_embeddings():
     await asyncio.sleep(settings.warmup_delay_seconds)
     try:
         from services.embedding_service import get_embedding_service
+
         service = get_embedding_service()
         if settings.warmup_local_embedding_models:
             await service.warmup()
@@ -45,6 +47,7 @@ async def lifespan(app: FastAPI):
     # Initialize Redis
     try:
         from services.redis_service import get_redis_service
+
         await get_redis_service().connect()
         logger.info("Redis connected")
     except Exception as e:
@@ -53,6 +56,7 @@ async def lifespan(app: FastAPI):
     # Initialize LangGraph
     try:
         from graph.rag_graph import get_rag_graph
+
         get_rag_graph()
         logger.info("LangGraph initialized")
     except Exception as e:
@@ -74,6 +78,7 @@ async def lifespan(app: FastAPI):
 
     try:
         from services.redis_service import get_redis_service
+
         redis = await get_redis_service()
         await redis.disconnect()
         logger.info("Redis disconnected")
@@ -82,6 +87,7 @@ async def lifespan(app: FastAPI):
 
     try:
         from services.milvus_service import get_milvus_service
+
         milvus = get_milvus_service()
         milvus.dispose()
         logger.info("Milvus connection closed")
@@ -90,6 +96,7 @@ async def lifespan(app: FastAPI):
 
     try:
         from services.postgres_service import get_postgres_service
+
         pg = get_postgres_service()
         pg.dispose()
         logger.info("PostgreSQL engine disposed")
@@ -150,6 +157,7 @@ async def health_check():
     # Check database
     try:
         from services.postgres_service import get_postgres_service
+
         pg = get_postgres_service()
         healthy = await pg.health_check()
         if healthy:
@@ -158,12 +166,16 @@ async def health_check():
             health_status["services"]["database"] = {"status": "disconnected"}
             health_status["status"] = "degraded"
     except Exception as e:
-        health_status["services"]["database"] = {"status": "disconnected", "error": str(e)[:100]}
+        health_status["services"]["database"] = {
+            "status": "disconnected",
+            "error": str(e)[:100],
+        }
         health_status["status"] = "degraded"
 
     # Check Milvus
     try:
         from services.milvus_service import get_milvus_service
+
         milvus = get_milvus_service()
         if milvus._connected:
             stats = await milvus.get_stats()
@@ -181,6 +193,7 @@ async def health_check():
     # Check Redis
     try:
         from services.redis_service import get_redis_service
+
         redis = await get_redis_service()
         if redis.client:
             await redis.client.ping()
@@ -189,7 +202,10 @@ async def health_check():
             health_status["services"]["redis"] = {"status": "disconnected"}
             health_status["status"] = "degraded"
     except Exception as e:
-        health_status["services"]["redis"] = {"status": "disconnected", "error": str(e)[:100]}
+        health_status["services"]["redis"] = {
+            "status": "disconnected",
+            "error": str(e)[:100],
+        }
         health_status["status"] = "degraded"
 
     return health_status
@@ -197,6 +213,7 @@ async def health_check():
 
 # Include API routes
 from api.routes import chat, documents, agents, chatbots, auth, tasks
+
 app.include_router(auth.router)
 app.include_router(chat.router)
 app.include_router(documents.router)
