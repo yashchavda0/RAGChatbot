@@ -183,7 +183,7 @@ export const MessageBubble = memo(function MessageBubble({
                     key={question}
                     type="button"
                     onClick={() => onSuggestionClick(question)}
-                    className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100"
+                    className="max-w-full break-all rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100 text-left"
                   >
                     {question}
                   </button>
