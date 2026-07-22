@@ -2,6 +2,7 @@
 Milvus vector database service for multi-embedding ensemble search.
 Supports multiple vector fields for different embedding models.
 """
+
 from typing import List, Dict, Any, Optional
 import asyncio
 import threading
@@ -18,6 +19,7 @@ from config.settings import settings, EMBEDDING_DIMENSIONS
 from config.logging_config import get_logger
 
 logger = get_logger(__name__)
+
 
 # Vector field naming convention
 def get_vector_field_name(model_name: str) -> str:
@@ -175,7 +177,9 @@ class MilvusService:
 
             # Add vector fields only for configured embedding models
             # Combine API models and local models from settings
-            active_models = set(settings.embedding_models + settings.local_embedding_models)
+            active_models = set(
+                settings.embedding_models + settings.local_embedding_models
+            )
 
             # Iterate EMBEDDING_FIELDS (fixed dict order) so schema field order
             # matches the insert data-list order in insert_embeddings. Using the
@@ -191,11 +195,15 @@ class MilvusService:
                         dim=config["dim"],
                     )
                 )
-                logger.info(f"Adding vector field for model: {model_name} (dim={config['dim']})")
+                logger.info(
+                    f"Adding vector field for model: {model_name} (dim={config['dim']})"
+                )
 
             for model_name in active_models:
                 if model_name not in self.EMBEDDING_FIELDS:
-                    logger.warning(f"Model {model_name} not found in EMBEDDING_FIELDS, skipping")
+                    logger.warning(
+                        f"Model {model_name} not found in EMBEDDING_FIELDS, skipping"
+                    )
 
             schema = CollectionSchema(
                 fields=fields,
@@ -308,7 +316,9 @@ class MilvusService:
             ]
 
             # Add vector fields only for active models (matching schema)
-            active_models = set(settings.embedding_models + settings.local_embedding_models)
+            active_models = set(
+                settings.embedding_models + settings.local_embedding_models
+            )
 
             for model_name, config in self.EMBEDDING_FIELDS.items():
                 # Skip models not in schema
@@ -326,12 +336,16 @@ class MilvusService:
                         )
                         # Pad or truncate
                         while len(model_embeddings) < num_chunks:
-                            model_embeddings.append(self._get_zero_vector(config["dim"]))
+                            model_embeddings.append(
+                                self._get_zero_vector(config["dim"])
+                            )
                         model_embeddings = model_embeddings[:num_chunks]
                     data.append(model_embeddings)
                 else:
                     # Use zero vectors for models not provided
-                    zero_vectors = [self._get_zero_vector(config["dim"]) for _ in range(num_chunks)]
+                    zero_vectors = [
+                        self._get_zero_vector(config["dim"]) for _ in range(num_chunks)
+                    ]
                     data.append(zero_vectors)
 
             # offload insert/flush to thread pool to avoid blocking event loop
@@ -353,7 +367,7 @@ class MilvusService:
     @staticmethod
     def _sanitize_filter_value(value: str) -> str:
         """Sanitize a value for use in Milvus filter expressions."""
-        return value.replace('"', '').replace("'", "").replace("\\", "")
+        return value.replace('"', "").replace("'", "").replace("\\", "")
 
     async def search(
         self,
@@ -444,18 +458,27 @@ class MilvusService:
         try:
             all_results: Dict[str, List[Dict]] = {}
 
-            # Search each model
-            for model_name, query_emb in query_embeddings.items():
-                if model_name in self.EMBEDDING_FIELDS:
-                    results = await self.search(
-                        query_embedding=query_emb,
+            # Search all models in parallel
+            valid_models = {
+                name: emb
+                for name, emb in query_embeddings.items()
+                if name in self.EMBEDDING_FIELDS
+            }
+            search_results = await asyncio.gather(
+                *[
+                    self.search(
+                        query_embedding=emb,
                         chatbot_id=chatbot_id,
-                        model_name=model_name,
+                        model_name=name,
                         top_k=top_k,
                         filters=filters,
                     )
-                    all_results[model_name] = results
-                    logger.debug(f"Model {model_name} returned {len(results)} results")
+                    for name, emb in valid_models.items()
+                ]
+            )
+            all_results = dict(zip(valid_models.keys(), search_results))
+            for name, res in all_results.items():
+                logger.debug(f"Model {name} returned {len(res)} results")
 
             # Fuse results using RRF
             fused = self._fuse_results(all_results, method=fusion_method)
@@ -492,7 +515,9 @@ class MilvusService:
                     scores[chunk_id] = scores.get(chunk_id, 0) + 1 / (rrf_k + rank + 1)
                 else:
                     # Weighted by similarity score
-                    scores[chunk_id] = max(scores.get(chunk_id, 0), item.get("score", 0))
+                    scores[chunk_id] = max(
+                        scores.get(chunk_id, 0), item.get("score", 0)
+                    )
 
                 if chunk_id not in items:
                     items[chunk_id] = item.copy()
@@ -541,19 +566,21 @@ class MilvusService:
 
             formatted_results = []
             for hit in results[0]:
-                formatted_results.append({
-                    "id": hit.id,
-                    "chunk_id": hit.entity.get("chunk_id"),
-                    "score": hit.score,
-                    "chatbot_id": hit.entity.get("chatbot_id"),
-                    "document_id": hit.entity.get("document_id"),
-                    "chunk_index": hit.entity.get("chunk_index"),
-                    "content": hit.entity.get("content"),
-                    "embedding_model": vector_field,
-                    "source_type": hit.entity.get("source_type"),
-                    "source_name": hit.entity.get("source_name"),
-                    "metadata": hit.entity.get("metadata", {}),
-                })
+                formatted_results.append(
+                    {
+                        "id": hit.id,
+                        "chunk_id": hit.entity.get("chunk_id"),
+                        "score": hit.score,
+                        "chatbot_id": hit.entity.get("chatbot_id"),
+                        "document_id": hit.entity.get("document_id"),
+                        "chunk_index": hit.entity.get("chunk_index"),
+                        "content": hit.entity.get("content"),
+                        "embedding_model": vector_field,
+                        "source_type": hit.entity.get("source_type"),
+                        "source_name": hit.entity.get("source_name"),
+                        "metadata": hit.entity.get("metadata", {}),
+                    }
+                )
 
             return formatted_results
         except Exception as e:
@@ -576,13 +603,19 @@ class MilvusService:
         except Exception as e:
             logger.error(f"Error deleting (sync): {e}")
 
-    def _query_sync(self, expr: str, output_fields: List[str], limit: Optional[int] = None) -> List[Dict[str, Any]]:
+    def _query_sync(
+        self, expr: str, output_fields: List[str], limit: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
         try:
             with self._conn_lock:
                 if limit:
-                    results = self.collection.query(expr=expr, output_fields=output_fields, limit=limit)
+                    results = self.collection.query(
+                        expr=expr, output_fields=output_fields, limit=limit
+                    )
                 else:
-                    results = self.collection.query(expr=expr, output_fields=output_fields)
+                    results = self.collection.query(
+                        expr=expr, output_fields=output_fields
+                    )
             return results
         except Exception as e:
             logger.error(f"Error querying Milvus (sync): {e}")
@@ -632,7 +665,9 @@ class MilvusService:
             safe_id = self._sanitize_filter_value(chatbot_id)
             expr = f'chatbot_id == "{safe_id}"'
             loop = asyncio.get_running_loop()
-            results = await loop.run_in_executor(self._executor, self._query_sync, expr, ["id"])
+            results = await loop.run_in_executor(
+                self._executor, self._query_sync, expr, ["id"]
+            )
             return len(results)
 
         except Exception as e:
@@ -664,7 +699,9 @@ class MilvusService:
         count = await self.get_chatbot_chunk_count(chatbot_id)
         return count > 0
 
-    async def get_chunks_for_bm25(self, chatbot_id: str, limit: int = 10000) -> List[Dict[str, str]]:
+    async def get_chunks_for_bm25(
+        self, chatbot_id: str, limit: int = 10000
+    ) -> List[Dict[str, str]]:
         """
         Get all chunks for a chatbot (for BM25 index building).
 
@@ -677,8 +714,12 @@ class MilvusService:
             safe_id = self._sanitize_filter_value(chatbot_id)
             expr = f'chatbot_id == "{safe_id}"'
             loop = asyncio.get_running_loop()
-            results = await loop.run_in_executor(self._executor, self._query_sync, expr, ["chunk_id", "content"], limit)
-            return [{"chunk_id": r["chunk_id"], "content": r["content"]} for r in results]
+            results = await loop.run_in_executor(
+                self._executor, self._query_sync, expr, ["chunk_id", "content"], limit
+            )
+            return [
+                {"chunk_id": r["chunk_id"], "content": r["content"]} for r in results
+            ]
 
         except Exception as e:
             logger.error(f"Error getting chunks for BM25: {e}")

@@ -3,6 +3,8 @@ Reranker service using Gemini embeddings for reranking.
 No model download required - uses Google's cloud API.
 Uses cosine similarity between query and document embeddings.
 """
+
+import asyncio
 import numpy as np
 from typing import List, Dict, Any, Optional
 from config import settings
@@ -51,7 +53,9 @@ class BAAIRerankerService:
             result = scored_docs[:top_k]
 
             if result:
-                logger.info(f"Reranking complete, top score: {result[0].get('reranker_score', 0):.3f}")
+                logger.info(
+                    f"Reranking complete, top score: {result[0].get('reranker_score', 0):.3f}"
+                )
 
             return result
 
@@ -72,12 +76,12 @@ class BAAIRerankerService:
 
         embedding_service = get_embedding_service()
 
-        # Embed query with RETRIEVAL_QUERY task type
-        query_embedding = await embedding_service.embed_query(query)
-
-        # Embed all document contents (truncate to 2000 chars for embedding)
+        # Embed query and documents in parallel (different task types, so two calls)
         doc_contents = [doc.get("content", "")[:2000] for doc in documents]
-        doc_embeddings = await embedding_service.embed_documents(doc_contents)
+        query_embedding, doc_embeddings = await asyncio.gather(
+            embedding_service.embed_query(query),
+            embedding_service.embed_documents(doc_contents),
+        )
 
         # Calculate cosine similarity for each document
         query_vec = np.array(query_embedding)
@@ -116,18 +120,22 @@ class BAAIRerankerService:
         all_results = []
 
         for doc in document_results:
-            all_results.append({
-                "content": doc.get("content", ""),
-                "source": "document",
-                "metadata": doc
-            })
+            all_results.append(
+                {
+                    "content": doc.get("content", ""),
+                    "source": "document",
+                    "metadata": doc,
+                }
+            )
 
         for web in web_results:
-            all_results.append({
-                "content": web.get("snippet", web.get("content", "")),
-                "source": "web",
-                "metadata": web
-            })
+            all_results.append(
+                {
+                    "content": web.get("snippet", web.get("content", "")),
+                    "source": "web",
+                    "metadata": web,
+                }
+            )
 
         return await self.rerank(query, all_results, top_k=top_k)
 

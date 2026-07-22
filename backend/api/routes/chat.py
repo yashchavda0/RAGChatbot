@@ -20,6 +20,7 @@ from graph.rag_graph import process_query, stream_query
 from services.session_manager import get_session_manager
 from services.chatbot_service import get_chatbot_service
 from services.milvus_service import get_milvus_service
+from services.cache_service import get_cache_service
 from api.websocket import manager
 
 router = APIRouter(tags=["chat"])
@@ -109,6 +110,36 @@ async def chat(
         # Check if chatbot has knowledge base
         milvus_service = get_milvus_service()
         has_knowledge = await milvus_service.has_knowledge_base(chatbot_id)
+
+        # Check response cache before running full pipeline
+        cache = get_cache_service()
+        q_hash = cache.compute_query_hash(chat_message.message, chatbot_id)
+        cached_resp = await cache.get_response(q_hash, chatbot_id)
+        if cached_resp:
+            logger.info(f"Response cache hit: chatbot={chatbot_id}")
+            await session_manager.add_message(
+                session_id=chat_message.session_id,
+                chatbot_id=chatbot_id,
+                role="user",
+                content=chat_message.message,
+            )
+            await session_manager.add_message(
+                session_id=chat_message.session_id,
+                chatbot_id=chatbot_id,
+                role="assistant",
+                content=cached_resp.get("final_response", ""),
+                sources=cached_resp.get("response_sources", []),
+            )
+            await session_manager.update_activity(chat_message.session_id)
+            return ChatResponse(
+                response=cached_resp.get("final_response", ""),
+                sources=cached_resp.get("response_sources", []),
+                session_id=chat_message.session_id,
+                chatbot_id=chatbot_id,
+                answer_source=cached_resp.get("answer_source", "documents"),
+                token_usage=cached_resp.get("token_usage"),
+                cache_hits={"response": True},
+            )
 
         # Process query through LangGraph with chatbot context
         state = await process_query(

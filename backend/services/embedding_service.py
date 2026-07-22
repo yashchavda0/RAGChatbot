@@ -2,7 +2,9 @@
 Multi-provider embedding service supporting API and local models.
 Supports ensemble embeddings with multiple models running in parallel.
 """
+
 import asyncio
+import hashlib
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 import aiohttp
@@ -19,7 +21,9 @@ class BaseEmbeddingProvider(ABC):
     dimension: int
 
     @abstractmethod
-    async def embed_texts(self, texts: List[str], task: str = "document") -> List[List[float]]:
+    async def embed_texts(
+        self, texts: List[str], task: str = "document"
+    ) -> List[List[float]]:
         """Embed multiple texts."""
         ...
 
@@ -38,7 +42,14 @@ class GeminiEmbeddingProvider(BaseEmbeddingProvider):
 
     MAX_RETRIES = 4
     RETRY_BASE_DELAY = 2.0
-    RETRYABLE_KEYWORDS = ("rate limit", "quota", "429", "resource exhausted", "500", "503")
+    RETRYABLE_KEYWORDS = (
+        "rate limit",
+        "quota",
+        "429",
+        "resource exhausted",
+        "500",
+        "503",
+    )
 
     def __init__(self):
         from google import generativeai as genai
@@ -50,12 +61,14 @@ class GeminiEmbeddingProvider(BaseEmbeddingProvider):
         self._batch_size = 100
         logger.info(f"Gemini embedding provider initialized (dim: {self.dimension})")
 
-    async def embed_texts(self, texts: List[str], task: str = "document") -> List[List[float]]:
+    async def embed_texts(
+        self, texts: List[str], task: str = "document"
+    ) -> List[List[float]]:
         task_type = "RETRIEVAL_DOCUMENT" if task == "document" else "RETRIEVAL_QUERY"
         all_embeddings = []
 
         for i in range(0, len(texts), self._batch_size):
-            batch = texts[i:i + self._batch_size]
+            batch = texts[i : i + self._batch_size]
             embeddings = await self._embed_batch(batch, task_type)
             all_embeddings.extend(embeddings)
             if i + self._batch_size < len(texts):
@@ -89,7 +102,7 @@ class GeminiEmbeddingProvider(BaseEmbeddingProvider):
             except Exception as e:
                 if attempt == self.MAX_RETRIES or not self._is_retryable(e):
                     raise
-                delay = self.RETRY_BASE_DELAY * (2 ** attempt)
+                delay = self.RETRY_BASE_DELAY * (2**attempt)
                 logger.warning(
                     f"Gemini embedding transient error (attempt {attempt + 1}/{self.MAX_RETRIES}), "
                     f"retrying in {delay:.1f}s: {e}"
@@ -112,11 +125,13 @@ class JinaEmbeddingProvider(BaseEmbeddingProvider):
         self._batch_size = 100
         logger.info(f"Jina embedding provider initialized (dim: {self.dimension})")
 
-    async def embed_texts(self, texts: List[str], task: str = "document") -> List[List[float]]:
+    async def embed_texts(
+        self, texts: List[str], task: str = "document"
+    ) -> List[List[float]]:
         all_embeddings = []
 
         for i in range(0, len(texts), self._batch_size):
-            batch = texts[i:i + self._batch_size]
+            batch = texts[i : i + self._batch_size]
             embeddings = await self._embed_batch(batch, task)
             all_embeddings.extend(embeddings)
 
@@ -140,7 +155,9 @@ class JinaEmbeddingProvider(BaseEmbeddingProvider):
         }
 
         async with aiohttp.ClientSession() as session:
-            async with session.post(self.API_URL, json=payload, headers=headers) as resp:
+            async with session.post(
+                self.API_URL, json=payload, headers=headers
+            ) as resp:
                 if resp.status != 200:
                     error = await resp.text()
                     raise ValueError(f"Jina API error: {error}")
@@ -167,7 +184,9 @@ class LocalEmbeddingProvider(BaseEmbeddingProvider):
         self.dimension = EMBEDDING_DIMENSIONS.get(model_name, 384)
         self._model = None
         self._hf_model_name = self.MODEL_MAPPING.get(model_name, model_name)
-        logger.info(f"Local embedding provider created for {model_name} (dim: {self.dimension}, lazy load)")
+        logger.info(
+            f"Local embedding provider created for {model_name} (dim: {self.dimension}, lazy load)"
+        )
 
     def _load_model(self):
         """Lazy load the model on first use."""
@@ -182,7 +201,9 @@ class LocalEmbeddingProvider(BaseEmbeddingProvider):
             )
             logger.info(f"Model {self.model_name} loaded successfully")
 
-    async def embed_texts(self, texts: List[str], task: str = "document") -> List[List[float]]:
+    async def embed_texts(
+        self, texts: List[str], task: str = "document"
+    ) -> List[List[float]]:
         loop = asyncio.get_event_loop()
 
         def _encode():
@@ -215,7 +236,9 @@ class EmbeddingService:
     def __init__(self):
         self._providers: Dict[str, BaseEmbeddingProvider] = {}
         self._initialize_providers()
-        logger.info(f"Embedding service initialized with providers: {list(self._providers.keys())}")
+        logger.info(
+            f"Embedding service initialized with providers: {list(self._providers.keys())}"
+        )
 
     def _initialize_providers(self):
         """Initialize all configured embedding providers."""
@@ -261,18 +284,41 @@ class EmbeddingService:
         """Get list of active model names."""
         return list(self._providers.keys())
 
-    async def embed_text(self, text: str, model_name: Optional[str] = None) -> List[float]:
+    async def embed_text(
+        self, text: str, model_name: Optional[str] = None
+    ) -> List[float]:
         """Embed a single text with specified or default model."""
         model = model_name or settings.default_embedding_model
         if model not in self._providers:
-            raise ValueError(f"Model {model} not available. Active: {list(self._providers.keys())}")
+            raise ValueError(
+                f"Model {model} not available. Active: {list(self._providers.keys())}"
+            )
         return (await self._providers[model].embed_texts([text], "document"))[0]
 
-    async def embed_query(self, query: str, model_name: Optional[str] = None) -> List[float]:
+    async def embed_query(
+        self, query: str, model_name: Optional[str] = None
+    ) -> List[float]:
         """Embed a query with specified or default model."""
         model = model_name or settings.default_embedding_model
         if model not in self._providers:
-            raise ValueError(f"Model {model} not available. Active: {list(self._providers.keys())}")
+            raise ValueError(
+                f"Model {model} not available. Active: {list(self._providers.keys())}"
+            )
+        try:
+            from services.cache_service import get_cache_service
+
+            cache = get_cache_service()
+            cache_key = hashlib.sha256(
+                f"q:{model}:{query.strip()}".encode()
+            ).hexdigest()[:40]
+            cached = await cache.get_embedding(cache_key)
+            if cached is not None:
+                return cached
+            result = await self._providers[model].embed_query(query)
+            await cache.set_embedding(cache_key, result)
+            return result
+        except Exception:
+            pass
         return await self._providers[model].embed_query(query)
 
     async def embed_documents(
@@ -285,6 +331,39 @@ class EmbeddingService:
         model = model_name or settings.default_embedding_model
         if model not in self._providers:
             raise ValueError(f"Model {model} not available")
+        try:
+            from services.cache_service import get_cache_service
+
+            cache = get_cache_service()
+            cache_keys = [
+                hashlib.sha256(f"d:{model}:{t[:500].strip()}".encode()).hexdigest()[:40]
+                for t in texts
+            ]
+            # Parallel cache lookups
+            cached_results = await asyncio.gather(
+                *[cache.get_embedding(k) for k in cache_keys],
+                return_exceptions=True,
+            )
+            results: List[Optional[List[float]]] = [
+                r if isinstance(r, list) else None for r in cached_results
+            ]
+            miss_indices = [i for i, r in enumerate(results) if r is None]
+            if miss_indices:
+                embeddings = await self._providers[model].embed_texts(
+                    [texts[i] for i in miss_indices], "document"
+                )
+                await asyncio.gather(
+                    *[
+                        cache.set_embedding(cache_keys[miss_indices[j]], emb)
+                        for j, emb in enumerate(embeddings)
+                    ],
+                    return_exceptions=True,
+                )
+                for i, emb in zip(miss_indices, embeddings):
+                    results[i] = emb
+            return results
+        except Exception:
+            pass
         return await self._providers[model].embed_texts(texts, "document")
 
     async def embed_with_all_models(self, text: str) -> Dict[str, List[float]]:

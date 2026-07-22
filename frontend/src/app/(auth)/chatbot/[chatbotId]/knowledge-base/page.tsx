@@ -269,25 +269,44 @@ export default function KnowledgeBasePage({ params }: KnowledgeBasePageProps) {
     }
   }, [newUrl, chatbotId]);
 
-  const handleDeleteUrl = useCallback((id: string) => {
-    setUrls((prev) => prev.filter((url) => url.id !== id));
-  }, []);
+  const handleDeleteUrl = useCallback(async (id: string) => {
+    try {
+      await documentApi.delete(chatbotId, id);
+      setUrls((prev) => prev.filter((url) => url.id !== id));
+    } catch (err) {
+      console.error('Failed to delete URL:', err);
+    }
+  }, [chatbotId]);
 
-  const handleRefreshUrl = useCallback((id: string) => {
+  const handleRefreshUrl = useCallback(async (id: string) => {
+    const urlSource = urls.find((u) => u.id === id);
+    if (!urlSource) return;
+
     setUrls((prev) =>
       prev.map((url) =>
         url.id === id ? { ...url, status: 'crawling' as const } : url
       )
     );
-    // Simulate refresh
-    setTimeout(() => {
+
+    try {
+      await documentApi.delete(chatbotId, id);
+      const result = await documentApi.addUrl(chatbotId, urlSource.url);
       setUrls((prev) =>
         prev.map((url) =>
-          url.id === id ? { ...url, status: 'indexed' as const } : url
+          url.id === id
+            ? { ...url, id: result.document_id, status: 'crawling' as const, indexedDate: new Date().toLocaleDateString() }
+            : url
         )
       );
-    }, 3000);
-  }, []);
+    } catch (err) {
+      setUrls((prev) =>
+        prev.map((url) =>
+          url.id === id ? { ...url, status: 'error' as const } : url
+        )
+      );
+      console.error('Failed to refresh URL:', err);
+    }
+  }, [chatbotId, urls]);
 
   const handleSaveText = useCallback(async () => {
     if (!textTitle.trim() || !textContent.trim()) return;
