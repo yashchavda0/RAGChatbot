@@ -257,8 +257,8 @@ export function WidgetChatSurface({
         .rag-widget-surface .rag-widget-input-shell:focus-within {
           box-shadow: 0 0 0 2px hsl(var(--primary) / 0.4);
         }
-        .rag-widget-surface .rag-widget-input-shell textarea:focus,
-        .rag-widget-surface .rag-widget-input-shell textarea:focus-visible {
+        .rag-widget-surface .rag-widget-input-shell input:focus,
+        .rag-widget-surface .rag-widget-input-shell input:focus-visible {
           outline: none;
           box-shadow: none;
         }
@@ -360,11 +360,12 @@ export function WidgetChatSurface({
                 className="rag-widget-input-shell"
                 style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid rgba(15,23,42,0.1)', borderRadius: 999, background: '#FFFFFF', padding: '4px 4px 4px 14px' }}
               >
-                <textarea
+                <input
+                  type="text"
                   value={inputValue}
                   onChange={(event) => setInputValue(event.target.value)}
                   onKeyDown={(event) => {
-                    if (event.key === 'Enter' && !event.shiftKey) {
+                    if (event.key === 'Enter') {
                       event.preventDefault();
                       handleSend(inputValue);
                       setInputValue('');
@@ -372,16 +373,12 @@ export function WidgetChatSurface({
                   }}
                   placeholder={settings.placeholder}
                   maxLength={settings.inputMaxChars}
-                  rows={1}
                   disabled={isLoading}
                   style={{
                     flex: 1,
                     height: 36,
                     padding: '8px 0',
                     margin: 0,
-                    display: 'block',
-                    resize: 'none',
-                    overflow: 'hidden',
                     border: 0,
                     outline: 'none',
                     background: 'transparent',
@@ -391,6 +388,23 @@ export function WidgetChatSurface({
                     lineHeight: 1.3,
                   }}
                 />
+                <span
+                  aria-live="polite"
+                  style={{
+                    fontSize: 10,
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                    minWidth: 38,
+                    textAlign: 'right',
+                    color: inputValue.length >= settings.inputMaxChars ? '#FF3B30' : '#9E9EA6',
+                    opacity: inputValue.length >= Math.floor(settings.inputMaxChars * 0.8) ? 1 : 0,
+                    transition: 'opacity 0.15s',
+                    pointerEvents: 'none',
+                    userSelect: 'none',
+                  }}
+                >
+                  {inputValue.length}/{settings.inputMaxChars}
+                </span>
                 <button
                   type="button"
                   onClick={() => {
@@ -415,11 +429,6 @@ export function WidgetChatSurface({
                   <SendIcon />
                 </button>
               </div>
-              {inputValue.length > settings.inputMaxChars * 0.8 && (
-                <p style={{ margin: '4px 14px 0', fontSize: 11, textAlign: 'right', color: inputValue.length >= settings.inputMaxChars ? '#FF3B30' : '#6E6E73' }}>
-                  {inputValue.length}/{settings.inputMaxChars}
-                </p>
-              )}
             </div>
 
             {settings.showBranding && (
