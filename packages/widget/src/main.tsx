@@ -55,7 +55,6 @@ async function initWidget() {
   root.render(
     <WidgetChatSurface
       chatbotId={config.chatbotId}
-      sessionId={`widget-${config.chatbotId}`}
       settings={settings}
       apiBaseUrl={apiBaseUrl}
       preview={false}
