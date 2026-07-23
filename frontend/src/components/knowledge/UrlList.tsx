@@ -11,6 +11,7 @@ export interface UrlSource {
   status: 'crawling' | 'indexed' | 'error';
   indexedDate: string;
   pages?: number;
+  chunks?: number;
   error?: string;
 }
 

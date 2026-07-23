@@ -346,9 +346,11 @@ class ChatbotService:
             if status is not None:
                 chatbot.status = status
             if settings is not None:
-                existing_settings = chatbot.settings or {}
-                existing_settings.update(settings)
-                chatbot.settings = existing_settings
+                # Must assign a NEW dict — mutating chatbot.settings in place
+                # leaves the attribute's object identity unchanged, so
+                # SQLAlchemy's change tracking never sees a diff and silently
+                # skips the column on flush (settings never reach the DB).
+                chatbot.settings = {**(chatbot.settings or {}), **settings}
 
             session.commit()
 

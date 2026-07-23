@@ -78,6 +78,7 @@ export default function KnowledgeBasePage({ params }: KnowledgeBasePageProps) {
           title: d.name,
           status: d.status,
           indexedDate: d.uploadDate,
+          chunks: d.chunks,
         }));
 
       setDocuments(docList);
@@ -124,6 +125,7 @@ export default function KnowledgeBasePage({ params }: KnowledgeBasePageProps) {
               title: d.name,
               status: d.status,
               indexedDate: d.uploadDate,
+              chunks: d.chunks,
             }))
           );
         } catch (err) {
@@ -137,7 +139,9 @@ export default function KnowledgeBasePage({ params }: KnowledgeBasePageProps) {
 
   const stats: KnowledgeBaseStats = {
     totalDocuments: documents.length + urls.length,
-    totalChunks: documents.reduce((acc, doc) => acc + (doc.chunks || 0), 0),
+    totalChunks:
+      documents.reduce((acc, doc) => acc + (doc.chunks || 0), 0) +
+      urls.reduce((acc, url) => acc + (url.chunks || 0), 0),
     lastUpdated: documents.length > 0 || urls.length > 0 ? new Date().toLocaleDateString() : '-',
   };
 
