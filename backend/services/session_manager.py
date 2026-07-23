@@ -214,6 +214,31 @@ class SessionManagerService:
             logger.error(f"Error getting conversation history: {e}")
             return []
 
+    async def get_message_count(self, session_id: str) -> int:
+        """Total messages (user+assistant) recorded for a session."""
+        try:
+            with self.postgres.get_session() as db:
+                return db.query(ConversationMessage).filter(
+                    ConversationMessage.session_id == session_id
+                ).count()
+
+        except Exception as e:
+            logger.error(f"Error counting messages: {e}")
+            return 0
+
+    async def get_message_count_since(self, session_id: str, since: datetime) -> int:
+        """Messages recorded for a session since a given timestamp (for rate limiting)."""
+        try:
+            with self.postgres.get_session() as db:
+                return db.query(ConversationMessage).filter(
+                    ConversationMessage.session_id == session_id,
+                    ConversationMessage.timestamp >= since,
+                ).count()
+
+        except Exception as e:
+            logger.error(f"Error counting messages since {since}: {e}")
+            return 0
+
     async def cleanup_expired_sessions(self) -> int:
         """Clean up expired sessions based on timeout."""
         try:

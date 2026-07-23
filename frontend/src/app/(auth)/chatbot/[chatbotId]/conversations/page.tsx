@@ -89,11 +89,10 @@ export default function ConversationsPage({ params }: ConversationsPageProps) {
   };
 
   return (
-    <div className="h-full flex flex-col gap-6 animate-fade-in">
+    <div className="h-full flex flex-col gap-4 animate-fade-in">
       {/* Page Header */}
       <div className="flex-shrink-0">
-        <h1 className="text-2xl font-bold text-[#1D1D1F]">Conversations</h1>
-        <p className="text-[#6E6E73] mt-1">Browse and review past conversations with this chatbot</p>
+        <h1 className="text-2xl font-bold text-[#1D1D1F]">Conversation History</h1>
       </div>
 
       {/* Error Message */}

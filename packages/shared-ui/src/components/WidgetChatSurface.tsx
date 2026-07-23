@@ -64,6 +64,38 @@ const FONT_FAMILIES: Record<string, string> = {
   Lato: "'Lato', 'Trebuchet MS', 'Segoe UI', sans-serif",
 };
 
+// Google Fonts query params for the families we actually need to load as webfonts.
+// 'SF Pro' is Apple's system font (no Google Fonts entry) — it renders natively via
+// -apple-system on Apple devices and falls back to Segoe UI/sans-serif elsewhere,
+// which is the expected behavior, so it's intentionally not in this map.
+const GOOGLE_FONT_QUERIES: Record<string, string> = {
+  Inter: 'Inter:wght@400;500;600;700',
+  Roboto: 'Roboto:wght@400;500;700',
+  'Open Sans': 'Open+Sans:wght@400;500;600;700',
+  Lato: 'Lato:wght@400;700',
+};
+
+// Ensures the selected widget font is actually loaded on the page. Without this,
+// picking anything besides Inter (only loaded inside our own dashboard via
+// next/font) silently falls back to a system font, making the setting look broken
+// on real embeds. Runs for both the live widget and the dashboard preview since
+// both render through this component.
+function useEnsureWebfontLoaded(fontFamily: string) {
+  useEffect(() => {
+    const query = GOOGLE_FONT_QUERIES[fontFamily];
+    if (!query || typeof document === 'undefined') return;
+
+    const existing = document.head.querySelector(`link[data-rag-widget-font="${fontFamily}"]`);
+    if (existing) return;
+
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `https://fonts.googleapis.com/css2?family=${query}&display=swap`;
+    link.setAttribute('data-rag-widget-font', fontFamily);
+    document.head.appendChild(link);
+  }, [fontFamily]);
+}
+
 export function normalizeWidgetSettings(data: Record<string, any>): WidgetSurfaceSettings {
   return {
     primaryColor: data.primary_color || DEFAULT_WIDGET_SETTINGS.primaryColor,
@@ -146,6 +178,7 @@ export function WidgetChatSurface({
 }: WidgetChatSurfaceProps) {
   const panel = getPanelDimensions(settings.size);
   const resolvedFont = FONT_FAMILIES[settings.fontFamily] || FONT_FAMILIES.Inter;
+  useEnsureWebfontLoaded(settings.fontFamily);
   const [isOpen, setIsOpen] = useState(preview ? true : settings.autoOpen);
   const [inputValue, setInputValue] = useState('');
   const [sessionId, setSessionId] = useState(() =>

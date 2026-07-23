@@ -4,6 +4,7 @@ Each chat is associated with a specific chatbot and its knowledge base.
 """
 
 import uuid
+from datetime import datetime, timedelta, timezone
 from fastapi import (
     APIRouter,
     WebSocket,
@@ -106,6 +107,29 @@ async def chat(
 
         if not session:
             await session_manager.create_session(session_id=chat_message.session_id)
+
+        # Enforce per-chatbot message limits, if configured
+        chatbot_settings = chatbot.get("settings") or {}
+        max_messages = chatbot_settings.get("max_messages_per_conversation")
+        rate_limit_per_hour = chatbot_settings.get("rate_limit_per_hour")
+
+        if max_messages:
+            total_messages = await session_manager.get_message_count(chat_message.session_id)
+            if total_messages >= max_messages:
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"This conversation has reached its maximum of {max_messages} messages.",
+                )
+
+        if rate_limit_per_hour:
+            recent_count = await session_manager.get_message_count_since(
+                chat_message.session_id, datetime.now(timezone.utc) - timedelta(hours=1)
+            )
+            if recent_count >= rate_limit_per_hour:
+                raise HTTPException(
+                    status_code=429,
+                    detail=f"Rate limit exceeded: max {rate_limit_per_hour} messages per hour.",
+                )
 
         # Check if chatbot has knowledge base
         milvus_service = get_milvus_service()
@@ -249,6 +273,33 @@ async def chat_websocket(
                 continue
 
             try:
+                # Enforce per-chatbot message limits, if configured
+                chatbot_settings = chatbot.get("settings") or {}
+                max_messages = chatbot_settings.get("max_messages_per_conversation")
+                rate_limit_per_hour = chatbot_settings.get("rate_limit_per_hour")
+
+                if max_messages:
+                    total_messages = await session_manager.get_message_count(session_id)
+                    if total_messages >= max_messages:
+                        await manager.send_error(
+                            session_id=session_id,
+                            request_id=request_id,
+                            error=f"This conversation has reached its maximum of {max_messages} messages.",
+                        )
+                        continue
+
+                if rate_limit_per_hour:
+                    recent_count = await session_manager.get_message_count_since(
+                        session_id, datetime.now(timezone.utc) - timedelta(hours=1)
+                    )
+                    if recent_count >= rate_limit_per_hour:
+                        await manager.send_error(
+                            session_id=session_id,
+                            request_id=request_id,
+                            error=f"Rate limit exceeded: max {rate_limit_per_hour} messages per hour.",
+                        )
+                        continue
+
                 # Check if chatbot has knowledge base
                 milvus_service = get_milvus_service()
                 has_knowledge = await milvus_service.has_knowledge_base(chatbot_id)
