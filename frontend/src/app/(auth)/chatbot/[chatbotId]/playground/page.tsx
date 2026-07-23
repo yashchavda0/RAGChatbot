@@ -119,9 +119,14 @@ function PlaygroundContent({ chatbotId, sessionId }: { chatbotId: string; sessio
   };
 
   return (
-    <div className="h-full flex rounded-2xl overflow-hidden border border-black/[0.06] bg-white shadow-apple">
+    <div className="flex flex-col lg:flex-row lg:h-full rounded-2xl overflow-hidden border border-black/[0.06] bg-white shadow-apple">
       {/* Chat Section */}
-      <div className={cn('flex flex-col transition-all duration-300', showDebugPanel ? 'w-1/2' : 'w-full')}>
+      <div
+        className={cn(
+          'flex flex-col transition-all duration-300 min-h-[70vh] lg:min-h-0',
+          showDebugPanel ? 'w-full lg:w-1/2' : 'w-full'
+        )}
+      >
         {/* Options Bar */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-black/[0.06] bg-[#F5F5F7]/50">
           <div className="flex items-center gap-2">
@@ -252,7 +257,7 @@ function PlaygroundContent({ chatbotId, sessionId }: { chatbotId: string; sessio
 
       {/* Debug Panel */}
       {showDebugPanel && (
-        <div className="w-1/2 border-l border-black/[0.06] animate-slide-in-right">
+        <div className="w-full lg:w-1/2 min-h-[60vh] lg:min-h-0 border-t lg:border-t-0 lg:border-l border-black/[0.06] animate-slide-in-right">
           <DebugPanel
             intent={detectedIntent}
             executions={agentExecutions}

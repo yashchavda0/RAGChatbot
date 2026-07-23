@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -110,7 +111,6 @@ export default function CustomizationPage({ params }: CustomizationPageProps) {
   const [originalSettings, setOriginalSettings] = useState<CustomizationSettings>(defaultSettings);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [saveError, setSaveError] = useState<string | null>(null);
   const [inputMaxCharsError, setInputMaxCharsError] = useState<string>("");
   useEffect(() => {
     async function fetchCustomization() {
@@ -140,14 +140,13 @@ export default function CustomizationPage({ params }: CustomizationPageProps) {
 
   const handleSave = async () => {
     setIsSaving(true);
-    setSaveError(null);
     try {
       await customizationApi.update(chatbotId, toBackendFormat(settings));
       setOriginalSettings(settings);
+      toast.success('Customization saved');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to save settings';
-      setSaveError(message);
       console.error('Failed to save settings:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to save settings');
     } finally {
       setIsSaving(false);
     }
@@ -155,7 +154,6 @@ export default function CustomizationPage({ params }: CustomizationPageProps) {
 
   const handleReset = () => {
     setSettings(originalSettings);
-    setSaveError(null);
   };
 
   if (isLoading) {
@@ -193,10 +191,7 @@ export default function CustomizationPage({ params }: CustomizationPageProps) {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {saveError && (
-            <span className="text-xs text-[#FF3B30]">{saveError}</span>
-          )}
-          {hasChanges && !saveError && (
+          {hasChanges && (
             <span className="text-xs text-[#6E6E73]">Unsaved changes</span>
           )}
           <Button variant="outline" onClick={handleReset} disabled={!hasChanges || isSaving}>

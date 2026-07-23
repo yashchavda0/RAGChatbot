@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Check, Copy } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn, copyToClipboard } from '@/lib/utils';
 
 interface CodeBlockProps {
@@ -25,9 +26,11 @@ export function CodeBlock({
     try {
       await copyToClipboard(code);
       setCopied(true);
+      toast.success('Copied to clipboard');
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to copy to clipboard');
     }
   };
 

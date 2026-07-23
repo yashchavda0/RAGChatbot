@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { AuthInput } from '@/components/auth/AuthInput';
 import { AuthShell } from '@/components/auth/AuthShell';
@@ -204,7 +205,6 @@ export default function SignupPage() {
   const router = useRouter();
   const { login } = useAuthStore();
   const [isLoading, setIsLoading] = React.useState(false);
-  const [apiError, setApiError] = React.useState<string | null>(null);
   const [formData, setFormData] = React.useState<FormData>({
     name: '',
     email: '',
@@ -255,7 +255,6 @@ export default function SignupPage() {
     if (!validateForm()) return;
 
     setIsLoading(true);
-    setApiError(null);
 
     try {
       const response = await fetch(`${API_URL}/auth/register`, {
@@ -296,10 +295,12 @@ export default function SignupPage() {
         },
       );
 
+      toast.success('Account created successfully!');
+
       router.push('/dashboard');
     } catch (error) {
       console.error('Signup error:', error);
-      setApiError(error instanceof Error ? error.message : 'An unexpected error occurred');
+      toast.error(error instanceof Error ? error.message : 'An unexpected error occurred');
     } finally {
       setIsLoading(false);
     }
@@ -450,13 +451,6 @@ export default function SignupPage() {
               )}
             </Button>
       </form>
-
-      {/* API error message */}
-      {apiError && (
-        <div className="mt-4 rounded-lg bg-destructive/10 border border-destructive/30 px-4 py-3 text-[13px] text-destructive">
-          {apiError}
-        </div>
-      )}
 
       {/* Divider */}
       <div className="relative my-6">

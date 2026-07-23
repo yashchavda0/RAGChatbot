@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { AuthInput } from '@/components/auth/AuthInput';
 import { AuthShell } from '@/components/auth/AuthShell';
@@ -87,7 +88,6 @@ export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuthStore();
   const [isLoading, setIsLoading] = React.useState(false);
-  const [apiError, setApiError] = React.useState<string | null>(null);
   const [formData, setFormData] = React.useState<FormData>({
     email: '',
     password: '',
@@ -120,7 +120,6 @@ export default function LoginPage() {
     if (!validateForm()) return;
 
     setIsLoading(true);
-    setApiError(null);
 
     try {
       const response = await fetch(`${API_URL}/auth/login`, {
@@ -163,11 +162,13 @@ export default function LoginPage() {
         }
       );
 
+      toast.success('Welcome back!');
+
       // Redirect to dashboard after successful login
       router.push('/dashboard');
     } catch (error) {
       console.error('Login error:', error);
-      setApiError(error instanceof Error ? error.message : 'An unexpected error occurred');
+      toast.error(error instanceof Error ? error.message : 'An unexpected error occurred');
     } finally {
       setIsLoading(false);
     }
@@ -194,11 +195,6 @@ export default function LoginPage() {
         </>
       }
     >
-      {apiError && (
-        <div className="mb-5 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-[14px]">
-          {apiError}
-        </div>
-      )}
       <form onSubmit={handleSubmit} className="space-y-5">
             <AuthInput
               label="Email"

@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useRef } from 'react';
 import { Upload, FileText, X, Check, AlertCircle, File, Image, FileCode } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 interface UploadProgress {
@@ -119,6 +120,7 @@ export function DocumentUpload({ onUploadComplete }: DocumentUploadProps) {
           )
         );
         onUploadComplete?.(result.document_id);
+        toast.success(`${file.name} uploaded`);
       }, 1500);
     } catch (error) {
       setUploads((prev) =>
@@ -128,6 +130,7 @@ export function DocumentUpload({ onUploadComplete }: DocumentUploadProps) {
             : u
         )
       );
+      toast.error(error instanceof Error ? error.message : `Failed to upload ${file.name}`);
     }
   };
 

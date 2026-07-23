@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -169,6 +170,14 @@ export default function SettingsPage({ params }: SettingsPageProps) {
   const hasSectionChanges = (section: keyof AllSettings) =>
     JSON.stringify(settings[section]) !== JSON.stringify(originalSettings[section]);
 
+  const sectionLabels: Record<keyof AllSettings, string> = {
+    general: 'General settings',
+    aiModel: 'AI model settings',
+    rateLimit: 'Rate limit settings',
+    security: 'Security settings',
+    dangerZone: 'Danger zone settings',
+  };
+
   const handleSaveSection = async (section: keyof AllSettings) => {
     setSavingSections((prev) => new Set(prev).add(section));
     try {
@@ -215,8 +224,10 @@ export default function SettingsPage({ params }: SettingsPageProps) {
         next.delete(section);
         return next;
       });
+      toast.success(`${sectionLabels[section]} saved`);
     } catch (error) {
       console.error(`Failed to save ${section} settings:`, error);
+      toast.error(error instanceof Error ? error.message : `Failed to save ${sectionLabels[section].toLowerCase()}`);
     } finally {
       setSavingSections((prev) => {
         const next = new Set(prev);
@@ -255,8 +266,10 @@ export default function SettingsPage({ params }: SettingsPageProps) {
           ...prev,
           dangerZone: { isActive: !settings.dangerZone.isActive },
         }));
+        toast.success(settings.dangerZone.isActive ? 'Chatbot deactivated' : 'Chatbot activated');
       } catch (error) {
         console.error('Failed to toggle chatbot status:', error);
+        toast.error(error instanceof Error ? error.message : 'Failed to update chatbot status');
       }
     }
   };
@@ -269,10 +282,11 @@ export default function SettingsPage({ params }: SettingsPageProps) {
     setIsDeleting(true);
     try {
       await chatbotApi.delete(chatbotId);
+      toast.success('Chatbot deleted');
       router.push('/dashboard');
     } catch (error) {
       console.error('Failed to delete chatbot:', error);
-      alert('Failed to delete chatbot. Please try again.');
+      toast.error(error instanceof Error ? error.message : 'Failed to delete chatbot');
       setIsDeleting(false);
     }
   };

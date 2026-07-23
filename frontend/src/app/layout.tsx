@@ -4,6 +4,7 @@ import { Inter } from 'next/font/google';
 // webpack CSS pipeline doesn't reliably resolve subpath `exports` for symlinked
 // npm-workspace packages, so this sidesteps that instead of fighting it.
 import '../../../packages/shared-ui/src/styles.css';
+import { Toaster } from '@/components/ui/sonner';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -65,10 +66,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning className={inter.variable}>
-      <head>
-        <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-      </head>
       <body
         className={`${inter.className} antialiased min-h-screen bg-background text-foreground`}
         suppressHydrationWarning
@@ -81,6 +78,7 @@ export default function RootLayout({
           Skip to main content
         </a>
         {children}
+        <Toaster position="top-right" />
       </body>
     </html>
   );

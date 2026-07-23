@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { AuthInput } from '@/components/auth/AuthInput';
 import { AuthShell } from '@/components/auth/AuthShell';
@@ -103,8 +104,10 @@ export default function ForgotPasswordPage() {
       console.log('Password reset request for:', formData.email);
       setSubmittedEmail(formData.email);
       setIsSuccess(true);
+      toast.success('Password reset email sent!');
     } catch (error) {
       console.error('Password reset error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to send reset email');
     } finally {
       setIsLoading(false);
     }

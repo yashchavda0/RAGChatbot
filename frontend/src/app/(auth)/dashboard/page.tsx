@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { GlassCard } from '@/components/shared/GlassCard';
 import { TrendBadge } from '@/components/shared/TrendBadge';
 import { ChatbotCard } from '@/components/dashboard/ChatbotCard';
@@ -81,9 +82,10 @@ export default function DashboardPage() {
       });
       setChatbots([mapChatbotToListItem(newChatbot), ...chatbots]);
       setIsCreateModalOpen(false);
+      toast.success('Chatbot created');
       router.push(`/chatbot/${newChatbot.id}/knowledge-base`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create chatbot');
+      toast.error(err instanceof Error ? err.message : 'Failed to create chatbot');
     } finally {
       setIsCreating(false);
     }
@@ -96,8 +98,9 @@ export default function DashboardPage() {
     try {
       await chatbotApi.delete(id);
       setChatbots((prev) => prev.filter((c) => c.id !== id));
+      toast.success('Chatbot deleted');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete chatbot');
+      toast.error(err instanceof Error ? err.message : 'Failed to delete chatbot');
     }
   };
 
@@ -105,8 +108,9 @@ export default function DashboardPage() {
     try {
       const duplicated = await chatbotApi.duplicate(id);
       setChatbots((prev) => [mapChatbotToListItem(duplicated), ...prev]);
+      toast.success('Chatbot duplicated');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to duplicate chatbot');
+      toast.error(err instanceof Error ? err.message : 'Failed to duplicate chatbot');
     }
   };
 
@@ -119,8 +123,9 @@ export default function DashboardPage() {
       setChatbots((prev) =>
         prev.map((c) => (c.id === chatbot.id ? mapChatbotToListItem(updated) : c))
       );
+      toast.success(chatbot.status === 'live' ? 'Chatbot deactivated' : 'Chatbot activated');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update chatbot status');
+      toast.error(err instanceof Error ? err.message : 'Failed to update chatbot status');
     }
   };
 

@@ -178,7 +178,7 @@ export function Sidebar({ chatbotId, chatbotName }: SidebarProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed left-0 top-12 z-50 transition-all duration-300',
+          'fixed left-0 top-12 bottom-0 z-50 transition-all duration-300',
           'bg-white/80 backdrop-blur-xl border-r border-white/20',
           'lg:relative lg:z-auto lg:top-0',
           isCollapsed ? 'lg:w-20' : 'lg:w-64',
@@ -273,7 +273,7 @@ export function Sidebar({ chatbotId, chatbotName }: SidebarProps) {
       {/* Mobile menu button */}
       <button
         onClick={() => setIsMobileOpen(!isMobileOpen)}
-        className="fixed top-4 left-4 z-50 lg:hidden flex items-center justify-center w-10 h-10 rounded-xl bg-white shadow-lg border border-[#E5E5EA]"
+        className="fixed top-16 left-4 z-50 lg:hidden flex items-center justify-center w-10 h-10 rounded-xl bg-white shadow-lg border border-[#E5E5EA]"
       >
         <svg className="w-5 h-5 text-[#1D1D1F]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           {isMobileOpen ? (

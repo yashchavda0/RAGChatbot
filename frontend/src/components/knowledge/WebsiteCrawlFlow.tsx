@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -19,14 +20,12 @@ export function WebsiteCrawlFlow({ chatbotId, onComplete }: WebsiteCrawlFlowProp
   const [crawlState, setCrawlState] = useState<CrawlState>('idle');
   const [crawledPages, setCrawledPages] = useState<CrawledPage[]>([]);
   const [sourceUrl, setSourceUrl] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const [selectedUrls, setSelectedUrls] = useState<Set<string>>(new Set());
   const [searchFilter, setSearchFilter] = useState('');
 
   const handleCrawl = async () => {
     if (!url.trim()) return;
 
-    setError(null);
     setCrawlState('crawling');
 
     try {
@@ -40,8 +39,9 @@ export function WebsiteCrawlFlow({ chatbotId, onComplete }: WebsiteCrawlFlowProp
       setSelectedUrls(new Set(result.discovered_links.map((p: CrawledPage) => p.url)));
       setSearchFilter('');
       setCrawlState('review');
+      toast.success(`Found ${result.discovered_links.length} page${result.discovered_links.length !== 1 ? 's' : ''}`);
     } catch (err: any) {
-      setError(err?.message || 'Failed to crawl website');
+      toast.error(err?.message || 'Failed to crawl website');
       setCrawlState('idle');
     }
   };
@@ -55,8 +55,9 @@ export function WebsiteCrawlFlow({ chatbotId, onComplete }: WebsiteCrawlFlowProp
       await documentApi.scrapeUrls(chatbotId, urls, sourceUrl);
       resetState();
       onComplete();
+      toast.success(`${urls.length} page${urls.length !== 1 ? 's' : ''} added to knowledge base`);
     } catch (err: any) {
-      setError(err?.message || 'Failed to process pages');
+      toast.error(err?.message || 'Failed to process pages');
       setCrawlState('review');
     }
   };
@@ -68,7 +69,6 @@ export function WebsiteCrawlFlow({ chatbotId, onComplete }: WebsiteCrawlFlowProp
     setSourceUrl('');
     setSelectedUrls(new Set());
     setSearchFilter('');
-    setError(null);
   };
 
   const toggleUrl = (pageUrl: string) => {
@@ -149,13 +149,6 @@ export function WebsiteCrawlFlow({ chatbotId, onComplete }: WebsiteCrawlFlowProp
             <p className="text-[14px] font-medium text-[#1D1D1F]">Processing pages...</p>
             <p className="text-[12px] text-[#6E6E73]">Scraping, chunking, and embedding selected pages.</p>
           </div>
-        </div>
-      )}
-
-      {/* Error */}
-      {error && (
-        <div className="mt-4 p-3 rounded-xl bg-[#FF3B30]/5 border border-[#FF3B30]/10 text-[13px] text-[#FF3B30]">
-          {error}
         </div>
       )}
 

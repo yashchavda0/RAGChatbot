@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { toast } from 'sonner';
 import { GlassCard } from '@/components/shared/GlassCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -182,6 +183,7 @@ export default function KnowledgeBasePage({ params }: KnowledgeBasePageProps) {
               : doc
           )
         );
+        toast.success(`${file.name} uploaded`);
       } catch (err) {
         setDocuments((prev) =>
           prev.map((doc) =>
@@ -190,6 +192,7 @@ export default function KnowledgeBasePage({ params }: KnowledgeBasePageProps) {
               : doc
           )
         );
+        toast.error(err instanceof Error ? err.message : `Failed to upload ${file.name}`);
       }
     }
 
@@ -203,8 +206,10 @@ export default function KnowledgeBasePage({ params }: KnowledgeBasePageProps) {
     try {
       await documentApi.delete(chatbotId, id);
       setDocuments((prev) => prev.filter((doc) => doc.id !== id));
+      toast.success('Document deleted');
     } catch (err) {
       console.error('Failed to delete document:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to delete document');
     }
   }, [chatbotId]);
 
@@ -216,6 +221,7 @@ export default function KnowledgeBasePage({ params }: KnowledgeBasePageProps) {
       }
     } catch (err) {
       console.error('Failed to get document URL:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to download document');
     }
   }, [chatbotId]);
 
@@ -262,6 +268,7 @@ export default function KnowledgeBasePage({ params }: KnowledgeBasePageProps) {
             : url
         )
       );
+      toast.success('URL added');
     } catch (err) {
       setUrls((prev) =>
         prev.map((url) =>
@@ -270,6 +277,7 @@ export default function KnowledgeBasePage({ params }: KnowledgeBasePageProps) {
             : url
         )
       );
+      toast.error(err instanceof Error ? err.message : 'Failed to add URL');
     } finally {
       setIsAddingUrl(false);
     }
@@ -279,8 +287,10 @@ export default function KnowledgeBasePage({ params }: KnowledgeBasePageProps) {
     try {
       await documentApi.delete(chatbotId, id);
       setUrls((prev) => prev.filter((url) => url.id !== id));
+      toast.success('URL deleted');
     } catch (err) {
       console.error('Failed to delete URL:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to delete URL');
     }
   }, [chatbotId]);
 
@@ -304,6 +314,7 @@ export default function KnowledgeBasePage({ params }: KnowledgeBasePageProps) {
             : url
         )
       );
+      toast.success('URL refresh started');
     } catch (err) {
       setUrls((prev) =>
         prev.map((url) =>
@@ -311,6 +322,7 @@ export default function KnowledgeBasePage({ params }: KnowledgeBasePageProps) {
         )
       );
       console.error('Failed to refresh URL:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to refresh URL');
     }
   }, [chatbotId, urls]);
 
@@ -344,6 +356,7 @@ export default function KnowledgeBasePage({ params }: KnowledgeBasePageProps) {
       setTextTitle('');
       setTextContent('');
       setActiveTab('documents');
+      toast.success('Text content saved');
     } catch (err) {
       setDocuments((prev) =>
         prev.map((doc) =>
@@ -352,6 +365,7 @@ export default function KnowledgeBasePage({ params }: KnowledgeBasePageProps) {
             : doc
         )
       );
+      toast.error(err instanceof Error ? err.message : 'Failed to save text content');
     } finally {
       setIsSavingText(false);
     }
