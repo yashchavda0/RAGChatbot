@@ -9,6 +9,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       className="toaster group"
       richColors
       closeButton
+      duration={3000}
       style={
         {
           '--normal-bg': 'hsl(var(--card))',
